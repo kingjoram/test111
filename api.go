@@ -22,13 +22,14 @@ type Session struct {
 
 type Film struct {
 	Title    string   `json:"title"`
-	ImageURL string   `json:"imagine_url"`
+	ImageURL string   `json:"poster_href"`
 	Rating   float64  `json:"rating"`
 	Genres   []string `json:"genres"`
 }
 
 type FilmsResponse struct {
 	Page           uint64 `json:"current_page"`
+	PageSize       uint64 `json:"page_size"`
 	CollectionName string `json:"collection_name"`
 	Total          uint64 `json:"total"`
 	Films          []Film `json:"films"`
@@ -48,23 +49,31 @@ func (a *API) Films(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			page = 1
 		}
-		pageSize := uint64(8)
+		pageSize, err := strconv.ParseUint(r.URL.Query().Get("page_size"), 10, 64)
+		if err != nil {
+			pageSize = 8
+		}
 
+		defaultCollectionName := "Новинки"
 		collectionName, found := a.core.GetCollection(collectionId)
 		if !found {
-			collectionName = "Новинки"
+			collectionName = defaultCollectionName
 		}
 
 		films := GetFilms()
-		if collectionName != "Новинки" {
+		if collectionName != defaultCollectionName {
 			films = SortFilms(collectionName, films)
 		}
 
 		if uint64(cap(films)) < page*pageSize {
-			page = uint64(math.Ceil(float64(uint64(cap(films)) / pageSize)))
+			page = uint64(math.Ceil(float64(uint64(cap(films))/pageSize)) + 1)
+		}
+		if pageSize > uint64(len(films)) {
+			pageSize = uint64(len(films))
 		}
 		filmsResponse := FilmsResponse{
 			Page:           page,
+			PageSize:       pageSize,
 			Total:          uint64(len(films)),
 			CollectionName: collectionName,
 			Films:          films[pageSize*(page-1) : pageSize*page],
@@ -110,6 +119,29 @@ func (a *API) LogoutSession(w http.ResponseWriter, r *http.Request) {
 	w.Write(answer)
 }
 
+func (a *API) AuthAccept(w http.ResponseWriter, r *http.Request) {
+	response := Response{Status: http.StatusOK, Body: nil}
+	var authorized bool
+
+	session, err := r.Cookie("session_id")
+	if err == nil && session != nil {
+		authorized = a.core.FindActiveSession(session.Value)
+	}
+
+	if !authorized {
+		response.Status = http.StatusUnauthorized
+	}
+
+	answer, err := json.Marshal(response)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(answer)
+}
+
 func (a *API) Signin(w http.ResponseWriter, r *http.Request) {
 	response := Response{Status: http.StatusOK, Body: nil}
 	if r.Method != http.MethodPost {
@@ -136,7 +168,7 @@ func (a *API) Signin(w http.ResponseWriter, r *http.Request) {
 				Value:    sid,
 				Path:     "/",
 				Expires:  session.ExpiresAt,
-				HttpOnly: false,
+				HttpOnly: true,
 			}
 			http.SetCookie(w, cookie)
 		}

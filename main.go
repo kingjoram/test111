@@ -15,9 +15,18 @@ func main() {
 		sessions: make(map[string]Session),
 		users:    make(map[string]User),
 		collections: map[string]string{
-			"new":    "Новинки",
-			"action": "Боевик",
-			"comedy": "Комедия",
+			"new":       "Новинки",
+			"action":    "Боевик",
+			"comedy":    "Комедия",
+			"ru":        "Российский",
+			"eu":        "Зарубежный",
+			"war":       "Военный",
+			"kids":      "Детский",
+			"detective": "Детектив",
+			"drama":     "Драма",
+			"crime":     "Криминал",
+			"melodrama": "Мелодрама",
+			"horror":    "Ужас",
 		},
 		lg: lg.With("module", "core"),
 	}
@@ -27,6 +36,7 @@ func main() {
 	mx.HandleFunc("/signup", api.Signup)
 	mx.HandleFunc("/signin", api.Signin)
 	mx.HandleFunc("/logout", api.LogoutSession)
+	mx.HandleFunc("/authcheck", api.AuthAccept)
 	mx.HandleFunc("/api/v1/films", api.Films)
 	http.ListenAndServe(":8080", mx)
 }
