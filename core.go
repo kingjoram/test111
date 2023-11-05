@@ -3,22 +3,24 @@ package main
 import (
 	"log/slog"
 	"math/rand"
-	"strings"
 	"sync"
 	"time"
+
+	"github.com/go-park-mail-ru/2023_2_Vkladyshi/repository/film"
+	"github.com/go-park-mail-ru/2023_2_Vkladyshi/repository/profile"
 )
 
 type Core struct {
-	sessions    map[string]Session
-	users       map[string]User
-	collections map[string]string
-	Mutex       sync.RWMutex
-	lg          *slog.Logger
+	sessions map[string]Session
+	mutex    sync.RWMutex
+	lg       *slog.Logger
+	Films    film.IFilmsRepo
+	Users    profile.IUserRepo
 }
 
 var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
-func (core *Core) CreateSession(login string) (string, Session) {
+func (core *Core) CreateSession(login string) (string, Session, error) {
 	SID := RandStringRunes(32)
 
 	session := Session{
@@ -26,37 +28,49 @@ func (core *Core) CreateSession(login string) (string, Session) {
 		ExpiresAt: time.Now().Add(24 * time.Hour),
 	}
 
-	core.Mutex.Lock()
+	core.mutex.Lock()
 	core.sessions[SID] = session
-	core.Mutex.Unlock()
+	core.mutex.Unlock()
 
-	return SID, session
+	return SID, session, nil
 }
 
-func (core *Core) KillSession(sid string) {
-	core.Mutex.Lock()
+func (core *Core) KillSession(sid string) error {
+	core.mutex.Lock()
 	delete(core.sessions, sid)
-	core.Mutex.Unlock()
+	core.mutex.Unlock()
+	return nil
 }
 
-func (core *Core) FindActiveSession(sid string) bool {
-	core.Mutex.RLock()
+func (core *Core) FindActiveSession(sid string) (bool, error) {
+	core.mutex.RLock()
 	_, found := core.sessions[sid]
-	core.Mutex.RUnlock()
-	return found
+	core.mutex.RUnlock()
+	return found, nil
 }
 
 func (core *Core) CreateUserAccount(request SignupRequest) {
-	core.Mutex.Lock()
-	core.users[request.Login] = User{Login: request.Login, Email: request.Email, Password: request.Password}
-	core.Mutex.Unlock()
+	err := core.Users.CreateUser(request.Login, request.Password, request.Name, request.BirthDate, request.Email)
+	if err != nil {
+		core.lg.Error("create user error", "err", err.Error())
+	}
 }
 
-func (core *Core) FindUserAccount(login string) (User, bool) {
-	core.Mutex.RLock()
-	user, found := core.users[login]
-	core.Mutex.RUnlock()
+func (core *Core) FindUserAccount(login string, password string) (*profile.UserItem, bool) {
+	user, found, err := core.Users.GetUser(login, password)
+	if err != nil {
+		core.lg.Error("find user error", "err", err.Error())
+	}
 	return user, found
+}
+
+func (core *Core) FindUserByLogin(login string) bool {
+	found, err := core.Users.FindUser(login)
+	if err != nil {
+		core.lg.Error("find user error", "err", err.Error())
+	}
+
+	return found
 }
 
 func RandStringRunes(seed int) string {
@@ -67,39 +81,20 @@ func RandStringRunes(seed int) string {
 	return string(symbols)
 }
 
-func (core *Core) GetCollection(collectionId string) (string, bool) {
-	core.Mutex.RLock()
-	collectionName, found := core.collections[collectionId]
-	core.Mutex.RUnlock()
-	return collectionName, found
-}
-
-func GetFilms() []Film {
-	films := []Film{}
-
-	films = append(films, Film{"Леди Баг и Супер-Кот: Пробуждение силы", "../../icons/lady-poster.jpg", 7.5, []string{"Комедия", "Приключения", "Фэнтези", "Мелодрама", "Зарубежный"}})
-	films = append(films, Film{"Барби", "../../icons/Barbie_2023_poster.jpeg", 6.7, []string{"Комедия", "Приключения", "Фэнтези", "Зарубежный"}})
-	films = append(films, Film{"Опенгеймер", "../../icons/Op.jpg", 8.5, []string{"Биография", "Драма", "История", "Ужас", "Зарубежный"}})
-	films = append(films, Film{"Слуга народа", "../../icons/Slave_nation.jpg", 0.7, []string{"Комедия", "Зарубежный"}})
-	films = append(films, Film{"Черная Роза", "../../icons/Black_rose.jpg", 1.5, []string{"Детектив", "Триллер", "Криминал", "Российский"}})
-	films = append(films, Film{"Бесславные ублюдки", "../../icons/bastards.jpg", 8.0, []string{"Боевик", "Военный", "Драма", "Комедия", "Зарубежный"}})
-	films = append(films, Film{"Бэтмен: Начало", "../../icons/Batman_Begins.jpg", 7.9, []string{"Боевик", "Фантастика", "Драма", "Приключения", "Зарубежный"}})
-	films = append(films, Film{"Криминальное чтиво", "../../icons/criminal.jpeg", 8.6, []string{"Криминал", "Драма", "Зарубежный"}})
-	films = append(films, Film{"Терминатор", "/", 8.0, []string{"Боевик", "Фантастика", "Триллер", "Зарубежный"}})
+func (core *Core) GetFilmsByGenre(genre string, start uint32, end uint32) []film.FilmItem {
+	films, err := core.Films.GetFilmsByGenre(genre, start, end)
+	if err != nil {
+		core.lg.Error("failed to get films from db", "err", err.Error())
+	}
 
 	return films
 }
 
-func SortFilms(collectionName string, films []Film) []Film {
-	sorted := make([]Film, 0, cap(films))
-
-	for _, film := range films {
-		for _, genre := range film.Genres {
-			if strings.EqualFold(genre, collectionName) {
-				sorted = append(sorted, film)
-			}
-		}
+func (core *Core) GetFilms(start uint32, end uint32) []film.FilmItem {
+	films, err := core.Films.GetFilms(start, end)
+	if err != nil {
+		core.lg.Error("failed to get films from db", "err", err.Error())
 	}
 
-	return sorted
+	return films
 }
