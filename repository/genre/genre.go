@@ -1,4 +1,4 @@
-package genre_repo
+package genre
 
 type GenreItem struct {
 	Id    int

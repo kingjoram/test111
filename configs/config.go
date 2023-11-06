@@ -14,6 +14,7 @@ type DbDsnCfg struct {
 	Port         int    `yaml:"port"`
 	Sslmode      string `yaml:"sslmode"`
 	MaxOpenConns int    `yaml:"max_open_conns"`
+	Timer        uint32 `yaml:"timer"`
 }
 
 func ReadConfig() (*DbDsnCfg, error) {

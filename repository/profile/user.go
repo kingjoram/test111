@@ -1,7 +1,7 @@
 package profile
 
 type UserItem struct {
-	Id               uint32 `sql:"AUTO_INCREMENT"`
+	Id               uint64 `sql:"AUTO_INCREMENT"`
 	Name             string
 	Birthdate        string
 	Photo            string

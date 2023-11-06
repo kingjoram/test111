@@ -1,4 +1,4 @@
-package person_in_film_repo
+package person_in_film
 
 import "database/sql"
 

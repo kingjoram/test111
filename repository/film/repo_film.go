@@ -9,8 +9,10 @@ import (
 )
 
 type IFilmsRepo interface {
-	GetFilmsByGenre(genre string, start uint32, end uint32) ([]FilmItem, error)
-	GetFilms(start uint32, end uint32) ([]FilmItem, error)
+	GetFilmsByGenre(genre string, start uint64, end uint64) ([]FilmItem, error)
+	GetFilms(start uint64, end uint64) ([]FilmItem, error)
+	GetFilm(filmId uint64) (*FilmItem, error)
+	PingDb() error
 }
 
 type RepoPostgre struct {
@@ -36,7 +38,7 @@ func GetFilmRepo(config configs.DbDsnCfg, lg *slog.Logger) *RepoPostgre {
 	return &postgreDb
 }
 
-func (repo *RepoPostgre) GetFilmsByGenre(genre string, start uint32, end uint32) ([]FilmItem, error) {
+func (repo *RepoPostgre) GetFilmsByGenre(genre string, start uint64, end uint64) ([]FilmItem, error) {
 	films := make([]FilmItem, 0, end-start)
 
 	rows, err := repo.DB.Query(
@@ -64,13 +66,13 @@ func (repo *RepoPostgre) GetFilmsByGenre(genre string, start uint32, end uint32)
 	return films, nil
 }
 
-func (repo *RepoPostgre) GetFilms(start uint32, end uint32) ([]FilmItem, error) {
+func (repo *RepoPostgre) GetFilms(start uint64, end uint64) ([]FilmItem, error) {
 	films := make([]FilmItem, 0, end-start)
 
 	rows, err := repo.DB.Query(
 		"SELECT film.id, film.title, poster FROM film "+
 			"ORDER BY release_date DESC "+
-			"OFFSET $2 LIMIT $3",
+			"OFFSET $1 LIMIT $2",
 		start, end)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, err
@@ -87,4 +89,28 @@ func (repo *RepoPostgre) GetFilms(start uint32, end uint32) ([]FilmItem, error) 
 	}
 
 	return films, nil
+}
+
+func (repo *RepoPostgre) PingDb() error {
+	err := repo.DB.Ping()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (repo *RepoPostgre) GetFilm(filmId uint64) (*FilmItem, error) {
+	film := &FilmItem{}
+	err := repo.DB.QueryRow(
+		"SELECT * FORM film "+
+			"WHERE id = $1", filmId).
+		Scan(&film.Id, &film.Title, &film.Info, &film.Poster, &film.ReleaseDate, &film.Country, &film.Mpaa)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return film, nil
 }

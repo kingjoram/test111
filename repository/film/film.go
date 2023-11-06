@@ -1,7 +1,7 @@
 package film
 
 type FilmItem struct {
-	Id          uint32 `sql:"AUTO_INCREMENT"`
+	Id          uint64 `sql:"AUTO_INCREMENT"`
 	Title       string
 	Info        string
 	Poster      string

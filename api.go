@@ -8,7 +8,10 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/go-park-mail-ru/2023_2_Vkladyshi/repository/comment"
+	"github.com/go-park-mail-ru/2023_2_Vkladyshi/repository/crew"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/repository/film"
+	"github.com/go-park-mail-ru/2023_2_Vkladyshi/repository/genre"
 )
 
 type API struct {
@@ -27,6 +30,16 @@ type FilmsResponse struct {
 	CollectionName string          `json:"collection_name"`
 	Total          uint64          `json:"total"`
 	Films          []film.FilmItem `json:"films"`
+}
+
+type FilmResponse struct {
+	Film       film.FilmItem         `json:"film"`
+	Genres     []genre.GenreItem     `json:"genres"`
+	Rating     float64               `json:"rating"`
+	Directors  []crew.CrewItem       `json:"directors"`
+	Scenarists []crew.CrewItem       `json:"scenarists"`
+	Characters []crew.Character      `json:"characters"`
+	Comments   []comment.CommentItem `json:"comments"`
 }
 
 func (a *API) SendResponse(w http.ResponseWriter, response Response) {
@@ -65,9 +78,9 @@ func (a *API) Films(w http.ResponseWriter, r *http.Request) {
 	var films []film.FilmItem
 	collectionId := r.URL.Query().Get("collection_id")
 	if collectionId == "" {
-		films = a.core.GetFilms(uint32(page*pageSize+1), uint32((page+1)*pageSize+1))
+		films = a.core.GetFilms(uint64(page*pageSize+1), uint64((page+1)*pageSize+1))
 	} else {
-		films = a.core.GetFilmsByGenre(collectionId, uint32(page*pageSize+1), uint32((page+1)*pageSize+1))
+		films = a.core.GetFilmsByGenre(collectionId, uint64(page*pageSize+1), uint64((page+1)*pageSize+1))
 	}
 
 	filmsResponse := FilmsResponse{
@@ -205,4 +218,47 @@ func (a *API) Signup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	a.SendResponse(w, response)
+}
+
+func (a *API) Film(w http.ResponseWriter, r *http.Request) {
+	response := Response{Status: http.StatusOK, Body: nil}
+	if r.Method != http.MethodGet {
+		response.Status = http.StatusMethodNotAllowed
+		a.SendResponse(w, response)
+		return
+	}
+
+	filmId, err := strconv.ParseUint(r.URL.Query().Get("film_id"), 10, 64)
+	if err != nil {
+		response.Status = http.StatusBadRequest
+		a.SendResponse(w, response)
+		return
+	}
+
+	film := a.core.GetFilm(filmId)
+	if film == nil {
+		response.Status = http.StatusNotFound
+		a.SendResponse(w, response)
+		return
+	}
+	genres := a.core.GetFilmGenres(filmId)
+	rating := a.core.GetFilmRating(filmId)
+	directors := a.core.GetFilmDirectors(filmId)
+	scenarists := a.core.GetFilmScenarists(filmId)
+	characters := a.core.GetFilmCharacters(filmId)
+
+	firstComment := 1
+	lastComment := 5
+	comments := a.core.GetFilmComments(filmId, uint64(firstComment), uint64(lastComment))
+
+	filmResponse := FilmResponse{
+		Film:       *film,
+		Genres:     genres,
+		Rating:     rating,
+		Directors:  directors,
+		Scenarists: scenarists,
+		Characters: characters,
+		Comments:   comments,
+	}
+	response.Body = filmResponse
 }

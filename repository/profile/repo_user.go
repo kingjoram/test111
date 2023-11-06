@@ -12,6 +12,7 @@ type IUserRepo interface {
 	GetUser(login string, password string) (*UserItem, bool, error)
 	FindUser(login string) (bool, error)
 	CreateUser(login string, password string, name string, birthDate string, email string) error
+	PingDb() error
 }
 
 type RepoPostgre struct {
@@ -78,5 +79,13 @@ func (repo *RepoPostgre) CreateUser(login string, password string, name string, 
 		return err
 	}
 
+	return nil
+}
+
+func (repo *RepoPostgre) PingDb() error {
+	err := repo.DB.Ping()
+	if err != nil {
+		return err
+	}
 	return nil
 }
