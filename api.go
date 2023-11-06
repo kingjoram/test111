@@ -76,11 +76,10 @@ func (a *API) Films(w http.ResponseWriter, r *http.Request) {
 	var films []film.FilmItem
 	collectionId := r.URL.Query().Get("collection_id")
 	if collectionId == "" {
-		films = a.core.GetFilms(uint64(page*pageSize+1), uint64((page+1)*pageSize+1))
+		films = a.core.GetFilms(uint64((page-1)*pageSize), pageSize)
 	} else {
-		films = a.core.GetFilmsByGenre(collectionId, uint64(page*pageSize+1), uint64((page+1)*pageSize+1))
+		films = a.core.GetFilmsByGenre(collectionId, uint64((page-1)*pageSize), pageSize)
 	}
-
 	filmsResponse := FilmsResponse{
 		Page:           page,
 		PageSize:       pageSize,

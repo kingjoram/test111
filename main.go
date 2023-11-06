@@ -5,8 +5,6 @@ import (
 	"net/http"
 	"os"
 
-	_ "github.com/jackc/pgx/stdlib"
-
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/configs"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/repository/comment"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/repository/crew"

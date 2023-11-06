@@ -6,6 +6,8 @@ import (
 	"log/slog"
 
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/configs"
+
+	_ "github.com/jackc/pgx/stdlib"
 )
 
 type ICrewRepo interface {

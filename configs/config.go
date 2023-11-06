@@ -19,12 +19,12 @@ type DbDsnCfg struct {
 
 func ReadConfig() (*DbDsnCfg, error) {
 	dsnConfig := DbDsnCfg{}
-	dsnFile, err := os.ReadFile("./configs/db_dsn.yaml")
+	dsnFile, err := os.ReadFile("configs/db_dsn.yaml")
 	if err != nil {
 		return nil, err
 	}
 
-	err = yaml.Unmarshal(dsnFile, dsnConfig)
+	err = yaml.Unmarshal(dsnFile, &dsnConfig)
 	if err != nil {
 		return nil, err
 	}
