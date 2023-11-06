@@ -1,15 +1,15 @@
 package crew
 
 type CrewItem struct {
-	Id        int
-	Name      string
-	Birthdate string
-	Photo     string
+	Id        uint64 `json:"id"`
+	Name      string `json:"name"`
+	Birthdate string `json:"birth_date"`
+	Photo     string `json:"photo"`
 }
 
 type Character struct {
-	IdActor       uint64
-	ActorPhoto    string
-	NameActor     string
-	NameCharacter string
+	IdActor       uint64 `json:"id_actor"`
+	ActorPhoto    string `json:"photo_actor"`
+	NameActor     string `json:"name_actor"`
+	NameCharacter string `json:"name_character"`
 }

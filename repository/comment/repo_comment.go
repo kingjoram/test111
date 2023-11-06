@@ -64,8 +64,8 @@ func (repo *RepoPostgre) GetFilmComments(filmId uint64, first uint64, last uint6
 	var comments []CommentItem
 
 	rows, err := repo.DB.Query(
-		"SELECT profiles.login, rating, comment FROM users_comment "+
-			"JOIN profiles ON users_comment.id_user = profiles.id "+
+		"SELECT profile.login, rating, comment FROM users_comment "+
+			"JOIN profile ON users_comment.id_user = profile.id "+
 			"WHERE id_film = $1"+
 			"OFFSET $2 LIMIT $3", filmId, first, last)
 	if err != nil && err != sql.ErrNoRows {

@@ -1,12 +1,12 @@
 package profile
 
 type UserItem struct {
-	Id               uint64 `sql:"AUTO_INCREMENT"`
-	Name             string
-	Birthdate        string
-	Photo            string
-	Login            string
-	Password         string
-	RegistrationDate string
-	Email            string
+	Id               uint64 `json:"id"`
+	Name             string `json:"name"`
+	Birthdate        string `json:"birth_date"`
+	Photo            string `json:"photo"`
+	Login            string `json:"login"`
+	Password         string `json:"password"`
+	RegistrationDate string `json:"registration_date"`
+	Email            string `json:"email"`
 }

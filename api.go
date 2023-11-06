@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-park-mail-ru/2023_2_Vkladyshi/repository/comment"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/repository/crew"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/repository/film"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/repository/genre"
@@ -33,13 +32,12 @@ type FilmsResponse struct {
 }
 
 type FilmResponse struct {
-	Film       film.FilmItem         `json:"film"`
-	Genres     []genre.GenreItem     `json:"genres"`
-	Rating     float64               `json:"rating"`
-	Directors  []crew.CrewItem       `json:"directors"`
-	Scenarists []crew.CrewItem       `json:"scenarists"`
-	Characters []crew.Character      `json:"characters"`
-	Comments   []comment.CommentItem `json:"comments"`
+	Film       film.FilmItem     `json:"film"`
+	Genres     []genre.GenreItem `json:"genres"`
+	Rating     float64           `json:"rating"`
+	Directors  []crew.CrewItem   `json:"directors"`
+	Scenarists []crew.CrewItem   `json:"scenarists"`
+	Characters []crew.Character  `json:"characters"`
 }
 
 func (a *API) SendResponse(w http.ResponseWriter, response Response) {
@@ -247,10 +245,6 @@ func (a *API) Film(w http.ResponseWriter, r *http.Request) {
 	scenarists := a.core.GetFilmScenarists(filmId)
 	characters := a.core.GetFilmCharacters(filmId)
 
-	firstComment := 1
-	lastComment := 5
-	comments := a.core.GetFilmComments(filmId, uint64(firstComment), uint64(lastComment))
-
 	filmResponse := FilmResponse{
 		Film:       *film,
 		Genres:     genres,
@@ -258,7 +252,8 @@ func (a *API) Film(w http.ResponseWriter, r *http.Request) {
 		Directors:  directors,
 		Scenarists: scenarists,
 		Characters: characters,
-		Comments:   comments,
 	}
 	response.Body = filmResponse
+
+	a.SendResponse(w, response)
 }

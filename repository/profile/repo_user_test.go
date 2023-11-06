@@ -27,7 +27,7 @@ func TestGetUser(t *testing.T) {
 		rows = rows.AddRow(item.Login, item.Photo)
 	}
 
-	mock.ExpectQuery("SELECT login, photo FROM profiles WHERE").WithArgs(expect[0].Login, expect[0].Password).WillReturnRows(rows)
+	mock.ExpectQuery("SELECT login, photo FROM profile WHERE").WithArgs(expect[0].Login, expect[0].Password).WillReturnRows(rows)
 
 	repo := &RepoPostgre{
 		DB: db,
@@ -52,7 +52,7 @@ func TestGetUser(t *testing.T) {
 	}
 
 	mock.
-		ExpectQuery("SELECT login, photo FROM profiles WHERE").
+		ExpectQuery("SELECT login, photo FROM profile WHERE").
 		WithArgs(expect[0].Login, expect[0].Password).
 		WillReturnError(fmt.Errorf("db_error"))
 
@@ -88,7 +88,7 @@ func TestFindUser(t *testing.T) {
 		rows = rows.AddRow(item.Login)
 	}
 
-	mock.ExpectQuery("SELECT login FROM profiles WHERE").WithArgs(expect[0].Login).WillReturnRows(rows)
+	mock.ExpectQuery("SELECT login FROM profile WHERE").WithArgs(expect[0].Login).WillReturnRows(rows)
 
 	repo := &RepoPostgre{
 		DB: db,
@@ -108,7 +108,7 @@ func TestFindUser(t *testing.T) {
 	}
 
 	mock.
-		ExpectQuery("SELECT login FROM profiles WHERE").
+		ExpectQuery("SELECT login FROM profile WHERE").
 		WithArgs(expect[0].Login).
 		WillReturnError(fmt.Errorf("db_error"))
 
@@ -149,7 +149,7 @@ func TestCreateUser(t *testing.T) {
 	}
 
 	mock.
-		ExpectExec("INSERT INTO profiles").
+		ExpectExec("INSERT INTO profile").
 		WithArgs(testUser.Name, testUser.Birthdate, testUser.Login, testUser.Password, testUser.Email).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
@@ -168,7 +168,7 @@ func TestCreateUser(t *testing.T) {
 	}
 
 	mock.
-		ExpectExec("INSERT INTO profiles").
+		ExpectExec("INSERT INTO profile").
 		WithArgs(testUser.Name, testUser.Birthdate, testUser.Login, testUser.Password, testUser.Email).
 		WillReturnError(fmt.Errorf("db_error"))
 

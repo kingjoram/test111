@@ -1,6 +1,6 @@
 package genre
 
 type GenreItem struct {
-	Id    int
-	Title string
+	Id    uint64 `json:"id"`
+	Title string `json:"title"`
 }
