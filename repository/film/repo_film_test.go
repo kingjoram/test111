@@ -3,6 +3,7 @@ package film
 import (
 	"fmt"
 	"reflect"
+	"regexp"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -25,13 +26,16 @@ func TestGetFilmsByGenre(t *testing.T) {
 		rows = rows.AddRow(item.Id, item.Title, item.Poster)
 	}
 
-	mock.ExpectQuery("SELECT film.id, film.title, poster FROM film JOIN").WithArgs("g1", 1, 2).WillReturnRows(rows)
+	mock.ExpectQuery(
+		regexp.QuoteMeta("SELECT film.id, film.title, poster FROM film  JOIN films_genre ON film.id = films_genre.id_film WHERE id_genre = $1 ORDER BY release_date DESC OFFSET $2 LIMIT $3")).
+		WithArgs(1, 1, 2).
+		WillReturnRows(rows)
 
 	repo := &RepoPostgre{
-		DB: db,
+		db: db,
 	}
 
-	films, err := repo.GetFilmsByGenre("g1", 1, 2)
+	films, err := repo.GetFilmsByGenre(1, 1, 2)
 	if err != nil {
 		t.Errorf("GetFilmsByGenre error: %s", err)
 	}
@@ -46,12 +50,12 @@ func TestGetFilmsByGenre(t *testing.T) {
 		return
 	}
 
-	mock.
-		ExpectQuery("SELECT film.id, film.title, poster FROM film JOIN").
-		WithArgs("g3", 1, 2).
+	mock.ExpectQuery(
+		regexp.QuoteMeta("SELECT film.id, film.title, poster FROM film  JOIN films_genre ON film.id = films_genre.id_film WHERE id_genre = $1 ORDER BY release_date DESC OFFSET $2 LIMIT $3")).
+		WithArgs(1, 1, 2).
 		WillReturnError(fmt.Errorf("db_error"))
 
-	_, err = repo.GetFilmsByGenre("g3", 1, 2)
+	_, err = repo.GetFilmsByGenre(1, 1, 2)
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)
 		return
@@ -82,7 +86,7 @@ func TestGetFilms(t *testing.T) {
 	mock.ExpectQuery("SELECT film.id, film.title, poster FROM film").WithArgs(1, 2).WillReturnRows(rows)
 
 	repo := &RepoPostgre{
-		DB: db,
+		db: db,
 	}
 
 	films, err := repo.GetFilms(1, 2)
@@ -133,10 +137,13 @@ func TestGetFilm(t *testing.T) {
 		rows = rows.AddRow(item.Id, item.Title, item.Info, item.Poster, item.ReleaseDate, item.Country, item.Mpaa)
 	}
 
-	mock.ExpectQuery("SELECT").WithArgs(1).WillReturnRows(rows)
+	mock.ExpectQuery(
+		regexp.QuoteMeta("SELECT * FROM film WHERE id = $1")).
+		WithArgs(1).
+		WillReturnRows(rows)
 
 	repo := &RepoPostgre{
-		DB: db,
+		db: db,
 	}
 
 	films, err := repo.GetFilm(1)
@@ -154,8 +161,8 @@ func TestGetFilm(t *testing.T) {
 		return
 	}
 
-	mock.
-		ExpectQuery("SELECT").
+	mock.ExpectQuery(
+		regexp.QuoteMeta("SELECT * FROM film WHERE id = $1")).
 		WithArgs(1).
 		WillReturnError(fmt.Errorf("db_error"))
 

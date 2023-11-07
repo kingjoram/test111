@@ -2,8 +2,10 @@ package film
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/configs"
 
@@ -11,14 +13,13 @@ import (
 )
 
 type IFilmsRepo interface {
-	GetFilmsByGenre(genre string, start uint64, end uint64) ([]FilmItem, error)
+	GetFilmsByGenre(genre uint64, start uint64, end uint64) ([]FilmItem, error)
 	GetFilms(start uint64, end uint64) ([]FilmItem, error)
 	GetFilm(filmId uint64) (*FilmItem, error)
-	PingDb() error
 }
 
 type RepoPostgre struct {
-	DB *sql.DB
+	db *sql.DB
 }
 
 func GetFilmRepo(config configs.DbDsnCfg, lg *slog.Logger) *RepoPostgre {
@@ -36,23 +37,33 @@ func GetFilmRepo(config configs.DbDsnCfg, lg *slog.Logger) *RepoPostgre {
 	}
 	db.SetMaxOpenConns(config.MaxOpenConns)
 
-	postgreDb := RepoPostgre{DB: db}
+	postgreDb := RepoPostgre{db: db}
+
+	go postgreDb.pingDb(config.Timer, lg)
 	return &postgreDb
 }
 
-func (repo *RepoPostgre) GetFilmsByGenre(genre string, start uint64, end uint64) ([]FilmItem, error) {
+func (repo *RepoPostgre) pingDb(timer uint32, lg *slog.Logger) {
+	err := repo.db.Ping()
+	if err != nil {
+		lg.Error("Repo Film db ping error", "err", err.Error())
+	}
+
+	time.Sleep(time.Duration(timer) * time.Second)
+}
+
+func (repo *RepoPostgre) GetFilmsByGenre(genre uint64, start uint64, end uint64) ([]FilmItem, error) {
 	films := make([]FilmItem, 0, end-start)
 
-	rows, err := repo.DB.Query(
+	rows, err := repo.db.Query(
 		"SELECT film.id, film.title, poster FROM film "+
 			"JOIN films_genre ON film.id = films_genre.id_film "+
-			"JOIN genre ON films_genre.id_genre = genre.id "+
-			"WHERE genre.title = $1 "+
+			"WHERE id_genre = $1 "+
 			"ORDER BY release_date DESC "+
 			"OFFSET $2 LIMIT $3",
 		genre, start, end)
-	if err != nil && err != sql.ErrNoRows {
-		return nil, err
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("GetFilmsByGenre err: %w", err)
 	}
 	defer rows.Close()
 
@@ -60,7 +71,7 @@ func (repo *RepoPostgre) GetFilmsByGenre(genre string, start uint64, end uint64)
 		post := FilmItem{}
 		err := rows.Scan(&post.Id, &post.Title, &post.Poster)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("GetFilmsByGenre scan err: %w", err)
 		}
 		films = append(films, post)
 	}
@@ -71,13 +82,13 @@ func (repo *RepoPostgre) GetFilmsByGenre(genre string, start uint64, end uint64)
 func (repo *RepoPostgre) GetFilms(start uint64, end uint64) ([]FilmItem, error) {
 	films := make([]FilmItem, 0, end-start)
 
-	rows, err := repo.DB.Query(
+	rows, err := repo.db.Query(
 		"SELECT film.id, film.title, poster FROM film "+
 			"ORDER BY release_date DESC "+
 			"OFFSET $1 LIMIT $2",
 		start, end)
-	if err != nil && err != sql.ErrNoRows {
-		return nil, err
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("GetFilms err: %w", err)
 	}
 	defer rows.Close()
 
@@ -85,7 +96,7 @@ func (repo *RepoPostgre) GetFilms(start uint64, end uint64) ([]FilmItem, error) 
 		post := FilmItem{}
 		err := rows.Scan(&post.Id, &post.Title, &post.Poster)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("GetFilms scan err: %w", err)
 		}
 		films = append(films, post)
 	}
@@ -93,25 +104,18 @@ func (repo *RepoPostgre) GetFilms(start uint64, end uint64) ([]FilmItem, error) 
 	return films, nil
 }
 
-func (repo *RepoPostgre) PingDb() error {
-	err := repo.DB.Ping()
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func (repo *RepoPostgre) GetFilm(filmId uint64) (*FilmItem, error) {
 	film := &FilmItem{}
-	err := repo.DB.QueryRow(
+	err := repo.db.QueryRow(
 		"SELECT * FROM film "+
 			"WHERE id = $1", filmId).
 		Scan(&film.Id, &film.Title, &film.Info, &film.Poster, &film.ReleaseDate, &film.Country, &film.Mpaa)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
 	if err != nil {
-		return nil, err
+		if errors.Is(err, sql.ErrNoRows) {
+			return film, nil
+		}
+
+		return nil, fmt.Errorf("GetFilm err: %w", err)
 	}
 
 	return film, nil

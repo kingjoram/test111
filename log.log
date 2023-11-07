@@ -1,1 +1,0 @@
-{"time":"2023-11-07T01:44:22.4088895+03:00","level":"ERROR","msg":"Get Film Rating error","module":"core","err":"ОШИБКА: отношение \"user_comment\" не существует (SQLSTATE 42P01)"}

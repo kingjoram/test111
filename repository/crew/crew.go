@@ -5,11 +5,13 @@ type CrewItem struct {
 	Name      string `json:"name"`
 	Birthdate string `json:"birth_date"`
 	Photo     string `json:"photo"`
+	Country   string `json:"country"`
+	Info      string `json:"info_text"`
 }
 
 type Character struct {
-	IdActor       uint64 `json:"id_actor"`
-	ActorPhoto    string `json:"photo_actor"`
-	NameActor     string `json:"name_actor"`
-	NameCharacter string `json:"name_character"`
+	IdActor       uint64 `json:"actor_id"`
+	ActorPhoto    string `json:"actor_photo"`
+	NameActor     string `json:"actor_name"`
+	NameCharacter string `json:"character_name"`
 }

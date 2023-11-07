@@ -3,6 +3,7 @@ package genre
 import (
 	"fmt"
 	"reflect"
+	"regexp"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -25,10 +26,13 @@ func TestGetFilmGenres(t *testing.T) {
 		rows = rows.AddRow(item.Id, item.Title)
 	}
 
-	mock.ExpectQuery("SELECT").WithArgs(1).WillReturnRows(rows)
+	mock.ExpectQuery(
+		regexp.QuoteMeta("SELECT genre.id, genre.title FROM genre JOIN films_genre ON genre.id = films_genre.id_genre WHERE films_genre.id_film = $1")).
+		WithArgs(1).
+		WillReturnRows(rows)
 
 	repo := &RepoPostgre{
-		DB: db,
+		db: db,
 	}
 
 	genres, err := repo.GetFilmGenres(1)
@@ -46,8 +50,8 @@ func TestGetFilmGenres(t *testing.T) {
 		return
 	}
 
-	mock.
-		ExpectQuery("SELECT").
+	mock.ExpectQuery(
+		regexp.QuoteMeta("SELECT genre.id, genre.title FROM genre JOIN films_genre ON genre.id = films_genre.id_genre WHERE films_genre.id_film = $1")).
 		WithArgs(1).
 		WillReturnError(fmt.Errorf("db_error"))
 
