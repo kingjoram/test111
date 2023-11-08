@@ -1,25 +1,26 @@
-package usecase
+package delivery
 
 import (
 	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
-	"github.com/go-park-mail-ru/2023_2_Vkladyshi/delivery"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/errors"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/repository/film"
+	"github.com/go-park-mail-ru/2023_2_Vkladyshi/usecase"
 )
 
 type API struct {
-	core delivery.ICore
+	core usecase.ICore
 	lg   *slog.Logger
 	mx   *http.ServeMux
 }
 
-func GetApi(c *delivery.Core, l *slog.Logger) *API {
+func GetApi(c *usecase.Core, l *slog.Logger) *API {
 	api := &API{
 		core: c,
 		lg:   l.With("module", "api"),
@@ -48,6 +49,12 @@ func (a *API) GetCsrfToken(w http.ResponseWriter, r *http.Request) {
 	csrfToken := r.Header.Get("x-csrf-token")
 
 	found, err := a.core.CheckCsrfToken(csrfToken)
+	if err != nil {
+		w.Header().Set("X-CSRF-Token", "null")
+		response.Status = http.StatusInternalServerError
+		a.SendResponse(w, response)
+		return
+	}
 	if csrfToken != "" && found {
 		w.Header().Set("X-CSRF-Token", csrfToken)
 		a.SendResponse(w, response)
@@ -55,17 +62,15 @@ func (a *API) GetCsrfToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	token, err := a.core.CreateCsrfToken()
-
 	if err != nil {
 		w.Header().Set("X-CSRF-Token", "null")
-		response.Status = 502
+		response.Status = http.StatusInternalServerError
 		a.SendResponse(w, response)
+		return
 	}
 
 	w.Header().Set("X-CSRF-Token", token)
 	a.SendResponse(w, response)
-	return
-
 }
 
 func (a *API) ListenAndServe() {
@@ -544,4 +549,30 @@ func (a *API) Profile(w http.ResponseWriter, r *http.Request) {
 		a.SendResponse(w, response)
 		return
 	}
+
+	r.ParseMultipartForm(0)
+	email := r.FormValue("email")
+	login := r.FormValue("login")
+	birthDate := r.FormValue("birthday")
+	password := r.FormValue("password")
+	photo, handler, err := r.FormFile("photo")
+	if err != nil {
+		a.lg.Error("Post profile error", "err", err.Error())
+		response.Status = http.StatusBadRequest
+		a.SendResponse(w, response)
+		return
+	}
+
+	filePhoto, err := os.OpenFile("/avatars/"+handler.Filename, os.O_WRONLY|os.O_CREATE, 0666)
+	if err != nil {
+		a.lg.Error("Post profile error", "err", err.Error())
+		response.Status = http.StatusInternalServerError
+		a.SendResponse(w, response)
+		return
+	}
+	defer filePhoto.Close()
+
+	io.Copy(filePhoto, photo)
+
+	a.core.EditProfile(login, password, email, birthDate, "/avatars/"+handler.Filename)
 }

@@ -18,8 +18,8 @@ func main() {
 		lg.Error("read config error", "err", err.Error())
 		return
 	}
-	core := delivery.GetCore(*config, lg)
-	api := usecase.GetApi(core, lg)
+	core := usecase.GetCore(*config, lg)
+	api := delivery.GetApi(core, lg)
 
 	api.ListenAndServe()
 }

@@ -1,4 +1,4 @@
-package usecase
+package delivery
 
 import (
 	"encoding/json"

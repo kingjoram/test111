@@ -53,8 +53,8 @@ func (repo *RepoPostgre) pingDb(timer uint32, lg *slog.Logger) {
 }
 
 func (repo *RepoPostgre) GetFilmRating(filmId uint64) (float64, uint64, error) {
-	var rating float64
-	var number uint64
+	var rating sql.NullFloat64
+	var number sql.NullInt64
 	err := repo.db.QueryRow(
 		"SELECT AVG(rating), COUNT(rating) FROM users_comment "+
 			"WHERE id_film = $1", filmId).Scan(&rating, &number)
@@ -65,7 +65,7 @@ func (repo *RepoPostgre) GetFilmRating(filmId uint64) (float64, uint64, error) {
 		return 0, 0, fmt.Errorf("GetFilmRating err: %w", err)
 	}
 
-	return rating, number, nil
+	return rating.Float64, uint64(number.Int64), nil
 }
 
 func (repo *RepoPostgre) GetFilmComments(filmId uint64, first uint64, limit uint64) ([]CommentItem, error) {

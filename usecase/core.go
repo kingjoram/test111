@@ -1,4 +1,4 @@
-package delivery
+package usecase
 
 import (
 	"fmt"
@@ -166,7 +166,7 @@ func (core *Core) KillSession(sid string) error {
 }
 
 func (core *Core) CreateUserAccount(login string, password string, name string, birthDate string, email string) error {
-	if matched, _ := regexp.MatchString(`^\w@\w$`, email); !matched {
+	if matched, _ := regexp.MatchString(`@`, email); !matched {
 		return errors.InvalideEmail
 	}
 	err := core.users.CreateUser(login, password, name, birthDate, email)
@@ -343,4 +343,14 @@ func (core *Core) GetGenre(genreId uint64) (string, error) {
 	}
 
 	return genre, nil
+}
+
+func (core *Core) EditProfile(login string, password string, email string, birthDate string, photo string) error {
+	err := core.users.EditProfile(login, password, email, birthDate, photo)
+	if err != nil {
+		core.lg.Error("Edit profile error", "err", err.Error())
+		return fmt.Errorf("Edit profile error: %w", err)
+	}
+
+	return nil
 }

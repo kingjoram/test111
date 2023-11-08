@@ -1,4 +1,4 @@
-package delivery
+package usecase
 
 import (
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/repository/comment"
@@ -34,4 +34,5 @@ type ICore interface {
 	GetGenre(genreId uint64) (string, error)
 	CheckCsrfToken(token string) (bool, error)
 	CreateCsrfToken() (string, error)
+	EditProfile(login string, password string, email string, birthDate string, photo string) error
 }
