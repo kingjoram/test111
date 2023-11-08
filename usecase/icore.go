@@ -34,5 +34,5 @@ type ICore interface {
 	GetGenre(genreId uint64) (string, error)
 	CheckCsrfToken(token string) (bool, error)
 	CreateCsrfToken() (string, error)
-	EditProfile(login string, password string, email string, birthDate string, photo string) error
+	EditProfile(prevLogin string, login string, password string, email string, birthDate string, photo string) error
 }

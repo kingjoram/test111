@@ -549,8 +549,25 @@ func (a *API) Profile(w http.ResponseWriter, r *http.Request) {
 		a.SendResponse(w, response)
 		return
 	}
+	session, err := r.Cookie("session_id")
+	if err == http.ErrNoCookie {
+		response.Status = http.StatusUnauthorized
+		a.SendResponse(w, response)
+		return
+	}
 
-	r.ParseMultipartForm(0)
+	prevLogin, err := a.core.GetUserName(session.Value)
+	if err != nil {
+		a.lg.Error("Get Profile error", "err", err.Error())
+	}
+
+	err = r.ParseForm()
+	if err != nil {
+		a.lg.Error("Post profile error", "err", err.Error())
+		response.Status = http.StatusBadRequest
+		a.SendResponse(w, response)
+		return
+	}
 	email := r.FormValue("email")
 	login := r.FormValue("login")
 	birthDate := r.FormValue("birthday")
@@ -563,7 +580,7 @@ func (a *API) Profile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	filePhoto, err := os.OpenFile("/avatars/"+handler.Filename, os.O_WRONLY|os.O_CREATE, 0666)
+	filePhoto, err := os.OpenFile("/home/ubuntu/frontend-project/avatars/"+handler.Filename, os.O_WRONLY|os.O_CREATE, 0666)
 	if err != nil {
 		a.lg.Error("Post profile error", "err", err.Error())
 		response.Status = http.StatusInternalServerError
@@ -572,7 +589,21 @@ func (a *API) Profile(w http.ResponseWriter, r *http.Request) {
 	}
 	defer filePhoto.Close()
 
-	io.Copy(filePhoto, photo)
+	_, err = io.Copy(filePhoto, photo)
+	if err != nil {
+		a.lg.Error("Post profile error", "err", err.Error())
+		response.Status = http.StatusInternalServerError
+		a.SendResponse(w, response)
+		return
+	}
 
-	a.core.EditProfile(login, password, email, birthDate, "/avatars/"+handler.Filename)
+	err = a.core.EditProfile(prevLogin, login, password, email, birthDate, "/avatars/"+handler.Filename)
+	if err != nil {
+		a.lg.Error("Post profile error", "err", err.Error())
+		response.Status = http.StatusInternalServerError
+		a.SendResponse(w, response)
+		return
+	}
+
+	a.SendResponse(w, response)
 }

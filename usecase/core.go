@@ -38,33 +38,63 @@ type Session struct {
 	ExpiresAt time.Time
 }
 
-func GetCore(cfg configs.DbDsnCfg, lg *slog.Logger) *Core {
+func GetCore(cfg configs.DbDsnCfg, lg *slog.Logger) (*Core, error) {
 	csrf, err := csrf.GetCsrfRepo(lg)
 
 	if err != nil {
 		lg.Error("Csrf repository is not responding")
-		return nil
+		return nil, err
 	}
 
 	session, err := session.GetSessionRepo(lg)
 
 	if err != nil {
 		lg.Error("Session repository is not responding")
-		return nil
+		return nil, err
 	}
 
+	films, err := film.GetFilmRepo(cfg, lg)
+	if err != nil {
+		lg.Error("cant create repo")
+		return nil, err
+	}
+	users, err := profile.GetUserRepo(cfg, lg)
+	if err != nil {
+		lg.Error("cant create repo")
+		return nil, err
+	}
+	genres, err := genre.GetGenreRepo(cfg, lg)
+	if err != nil {
+		lg.Error("cant create repo")
+		return nil, err
+	}
+	comments, err := comment.GetCommentRepo(cfg, lg)
+	if err != nil {
+		lg.Error("cant create repo")
+		return nil, err
+	}
+	crew, err := crew.GetCrewRepo(cfg, lg)
+	if err != nil {
+		lg.Error("cant create repo")
+		return nil, err
+	}
+	professions, err := profession.GetProfessionRepo(cfg, lg)
+	if err != nil {
+		lg.Error("cant create repo")
+		return nil, err
+	}
 	core := Core{
 		sessions:   *session,
 		csrfTokens: *csrf,
 		lg:         lg.With("module", "core"),
-		films:      film.GetFilmRepo(cfg, lg),
-		users:      profile.GetUserRepo(cfg, lg),
-		genres:     genre.GetGenreRepo(cfg, lg),
-		comments:   comment.GetCommentRepo(cfg, lg),
-		crew:       crew.GetCrewRepo(cfg, lg),
-		profession: profession.GetProfessionRepo(cfg, lg),
+		films:      films,
+		users:      users,
+		genres:     genres,
+		comments:   comments,
+		crew:       crew,
+		profession: professions,
 	}
-	return &core
+	return &core, nil
 }
 
 var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
@@ -345,8 +375,8 @@ func (core *Core) GetGenre(genreId uint64) (string, error) {
 	return genre, nil
 }
 
-func (core *Core) EditProfile(login string, password string, email string, birthDate string, photo string) error {
-	err := core.users.EditProfile(login, password, email, birthDate, photo)
+func (core *Core) EditProfile(prevLogin string, login string, password string, email string, birthDate string, photo string) error {
+	err := core.users.EditProfile(prevLogin, login, password, email, birthDate, photo)
 	if err != nil {
 		core.lg.Error("Edit profile error", "err", err.Error())
 		return fmt.Errorf("Edit profile error: %w", err)

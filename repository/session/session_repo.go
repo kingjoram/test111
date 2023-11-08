@@ -2,6 +2,7 @@ package session
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"time"
 
@@ -90,7 +91,7 @@ func (redisRepo *SessionRepo) CheckActiveSession(sid string, lg *slog.Logger) (b
 	ctx := context.Background()
 
 	_, err := redisRepo.sessionRedisClient.Get(ctx, sid).Result()
-	if err == redis.Nil {
+	if errors.Is(err, redis.Nil) {
 		lg.Error("Key " + sid + " not found")
 		return false, nil
 	}

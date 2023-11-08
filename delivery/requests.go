@@ -18,3 +18,10 @@ type CommentRequest struct {
 	Rating uint16 `json:"rating"`
 	Text   string `json:"text"`
 }
+
+type EditProfileRequest struct {
+	Login    string `json:"login"`
+	Email    string `json:"email"`
+	Photo    []byte `json:"photo"`
+	Password string `json:"password"`
+}

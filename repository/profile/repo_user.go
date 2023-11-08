@@ -17,41 +17,43 @@ type IUserRepo interface {
 	FindUser(login string) (bool, error)
 	CreateUser(login string, password string, name string, birthDate string, email string) error
 	GetUserProfile(login string) (*UserItem, error)
-	EditProfile(login string, password string, email string, birthDate string, photo string) error
+	EditProfile(prevLogin string, login string, password string, email string, birthDate string, photo string) error
 }
 
 type RepoPostgre struct {
 	db *sql.DB
 }
 
-func GetUserRepo(config configs.DbDsnCfg, lg *slog.Logger) *RepoPostgre {
+func GetUserRepo(config configs.DbDsnCfg, lg *slog.Logger) (*RepoPostgre, error) {
 	dsn := fmt.Sprintf("user=%s dbname=%s password= %s host=%s port=%d sslmode=%s",
 		config.User, config.DbName, config.Password, config.Host, config.Port, config.Sslmode)
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		lg.Error("sql open error", "err", err.Error())
-		return nil
+		return nil, fmt.Errorf("get user repo err: %w", err)
 	}
 	err = db.Ping()
 	if err != nil {
 		lg.Error("sql ping error", "err", err.Error())
-		return nil
+		return nil, fmt.Errorf("get user repo err: %w", err)
 	}
 	db.SetMaxOpenConns(config.MaxOpenConns)
 
 	postgreDb := RepoPostgre{db: db}
 
 	go postgreDb.pingDb(config.Timer, lg)
-	return &postgreDb
+	return &postgreDb, nil
 }
 
 func (repo *RepoPostgre) pingDb(timer uint32, lg *slog.Logger) {
-	err := repo.db.Ping()
-	if err != nil {
-		lg.Error("Repo Profile db ping error", "err", err.Error())
-	}
+	for {
+		err := repo.db.Ping()
+		if err != nil {
+			lg.Error("Repo Profile db ping error", "err", err.Error())
+		}
 
-	time.Sleep(time.Duration(timer) * time.Second)
+		time.Sleep(time.Duration(timer) * time.Second)
+	}
 }
 
 func (repo *RepoPostgre) GetUser(login string, password string) (*UserItem, bool, error) {
@@ -111,10 +113,10 @@ func (repo *RepoPostgre) GetUserProfile(login string) (*UserItem, error) {
 	return post, nil
 }
 
-func (repo *RepoPostgre) EditProfile(login string, password string, email string, birthDate string, photo string) error {
+func (repo *RepoPostgre) EditProfile(prevLogin string, login string, password string, email string, birthDate string, photo string) error {
 	_, err := repo.db.Exec("UPDATE profile "+
-		"SET login = $1, password = $2, photo = $3, email = $4, birth_date "+
-		"WHERE login = $1", login, password, photo, email, birthDate)
+		"SET login = $1, password = $2, photo = $3, email = $4, birth_date = $5 "+
+		"WHERE login = $6", login, password, photo, email, birthDate, prevLogin)
 	if err != nil {
 		return fmt.Errorf("failed to edit profile in db: %w", err)
 	}

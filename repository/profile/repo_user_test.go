@@ -3,6 +3,7 @@ package profile
 import (
 	"fmt"
 	"reflect"
+	"regexp"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -173,6 +174,64 @@ func TestCreateUser(t *testing.T) {
 		WillReturnError(fmt.Errorf("db_error"))
 
 	err = repo.CreateUser(testUser.Login, testUser.Password, testUser.Name, testUser.Birthdate, testUser.Email)
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+		return
+	}
+	if err == nil {
+		t.Errorf("expected error, got nil")
+		return
+	}
+}
+
+func TestEditProfile(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("cant create mock: %s", err)
+	}
+	defer db.Close()
+
+	rows := sqlmock.NewRows([]string{"login"})
+
+	prev := "l0"
+	testUser := UserItem{
+		Login:     "l1",
+		Password:  "p1",
+		Birthdate: "2003-10-08",
+		Email:     "e1",
+		Photo:     "ph1",
+	}
+	expect := []*UserItem{&testUser}
+
+	for _, item := range expect {
+		rows = rows.AddRow(item.Login)
+	}
+
+	mock.ExpectExec(
+		regexp.QuoteMeta("UPDATE profile SET login = $1, password = $2, photo = $3, email = $4, birth_date = $5 WHERE login = $6")).
+		WithArgs(testUser.Login, testUser.Password, testUser.Photo, testUser.Email, testUser.Birthdate, prev).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	repo := &RepoPostgre{
+		db: db,
+	}
+
+	err = repo.EditProfile(prev, testUser.Login, testUser.Password, testUser.Email, testUser.Birthdate, testUser.Photo)
+	if err != nil {
+		t.Errorf("unexpected error: %s", err)
+		return
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+		return
+	}
+
+	mock.ExpectExec(
+		regexp.QuoteMeta("UPDATE profile SET login = $1, password = $2, photo = $3, email = $4, birth_date = $5 WHERE login = $6")).
+		WithArgs(testUser.Login, testUser.Password, testUser.Photo, testUser.Email, testUser.Birthdate, prev).
+		WillReturnError(fmt.Errorf("db_error"))
+
+	err = repo.EditProfile(prev, testUser.Login, testUser.Password, testUser.Email, testUser.Birthdate, testUser.Photo)
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)
 		return

@@ -18,7 +18,11 @@ func main() {
 		lg.Error("read config error", "err", err.Error())
 		return
 	}
-	core := usecase.GetCore(*config, lg)
+	core, err := usecase.GetCore(*config, lg)
+	if err != nil {
+		lg.Error("cant create core")
+		return
+	}
 	api := delivery.GetApi(core, lg)
 
 	api.ListenAndServe()
