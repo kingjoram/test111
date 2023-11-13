@@ -2,33 +2,40 @@ package csrf
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
+	"github.com/go-park-mail-ru/2023_2_Vkladyshi/configs"
 	"github.com/go-redis/redis/v8"
 )
+
+var mutex sync.RWMutex
 
 type CsrfRepo struct {
 	csrfRedisClient *redis.Client
 	Connection      bool
 }
 
-func (redisRepo *CsrfRepo) CheckRedisCsrfConnection() {
+func (redisRepo *CsrfRepo) CheckRedisCsrfConnection(csrfCfg configs.DbRedisCfg) {
 	ctx := context.Background()
 	for {
 		_, err := redisRepo.csrfRedisClient.Ping(ctx).Result()
+		mutex.RLock()
+		mutex.Lock()
 		redisRepo.Connection = err == nil
+		mutex.Unlock()
+		mutex.RUnlock()
 
-		time.Sleep(15 * time.Second)
+		time.Sleep(time.Duration(csrfCfg.Timer) * time.Second)
 	}
 }
 
-func GetCsrfRepo(lg *slog.Logger) (*CsrfRepo, error) {
+func GetCsrfRepo(csrfConfigs configs.DbRedisCfg, lg *slog.Logger) (*CsrfRepo, error) {
 	redisClient := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
-		Password: "",
-		DB:       1,
+		Addr:     csrfConfigs.Host,
+		Password: csrfConfigs.Password,
+		DB:       csrfConfigs.DbNumber,
 	})
 
 	ctx := context.Background()
@@ -43,37 +50,34 @@ func GetCsrfRepo(lg *slog.Logger) (*CsrfRepo, error) {
 		Connection:      true,
 	}
 
-	go csrfRepo.CheckRedisCsrfConnection()
+	go csrfRepo.CheckRedisCsrfConnection(csrfConfigs)
 
 	return &csrfRepo, nil
 }
 
-func (redisRepo *CsrfRepo) AddCsrf(active Csrf, lg *slog.Logger) (bool, error) {
+func (redisRepo *CsrfRepo) AddCsrf(ctx context.Context, active Csrf, lg *slog.Logger) (bool, error) {
 	if !redisRepo.Connection {
 		lg.Error("Redis csrf connection lost")
 		return false, nil
 	}
 
-	ctx := context.Background()
 	redisRepo.csrfRedisClient.Set(ctx, active.SID, active.SID, 3*time.Hour)
 
-	csrfAdded, err_check := redisRepo.CheckActiveCsrf(active.SID, lg)
+	csrfAdded, err_check := redisRepo.CheckActiveCsrf(ctx, active.SID, lg)
 
 	if err_check != nil {
 		lg.Error("Error, cannot create csrf token " + err_check.Error())
-		return false, fmt.Errorf("add csrf error: %w", err_check)
+		return false, err_check
 	}
 
 	return csrfAdded, nil
 }
 
-func (redisRepo *CsrfRepo) CheckActiveCsrf(sid string, lg *slog.Logger) (bool, error) {
+func (redisRepo *CsrfRepo) CheckActiveCsrf(ctx context.Context, sid string, lg *slog.Logger) (bool, error) {
 	if !redisRepo.Connection {
 		lg.Error("Redis csrf connection lost")
 		return false, nil
 	}
-
-	ctx := context.Background()
 
 	_, err := redisRepo.csrfRedisClient.Get(ctx, sid).Result()
 	if err == redis.Nil {
@@ -89,9 +93,7 @@ func (redisRepo *CsrfRepo) CheckActiveCsrf(sid string, lg *slog.Logger) (bool, e
 	return true, nil
 }
 
-func (redisRepo *CsrfRepo) DeleteSession(sid string, lg *slog.Logger) (bool, error) {
-	ctx := context.Background()
-
+func (redisRepo *CsrfRepo) DeleteSession(ctx context.Context, sid string, lg *slog.Logger) (bool, error) {
 	_, err := redisRepo.csrfRedisClient.Del(ctx, sid).Result()
 	if err != nil {
 		lg.Error("Delete request could not be completed:", err)

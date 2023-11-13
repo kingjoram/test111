@@ -147,7 +147,7 @@ func TestAddComment(t *testing.T) {
 	}
 
 	mock.ExpectExec(
-		regexp.QuoteMeta("INSERT INTO users_comment(id_film, rating, comment, id_user) SELECT $1, $2, $3', profile.id FROM profile WHERE login = $4")).
+		regexp.QuoteMeta("INSERT INTO users_comment(id_film, rating, comment, id_user) SELECT $1, $2, $3, profile.id FROM profile WHERE login = $4")).
 		WithArgs(testComment.IdFilm, testComment.Rating, testComment.Comment, testComment.Username).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
@@ -166,7 +166,7 @@ func TestAddComment(t *testing.T) {
 	}
 
 	mock.ExpectExec(
-		regexp.QuoteMeta("INSERT INTO users_comment(id_film, rating, comment, id_user) SELECT $1, $2, $3', profile.id FROM profile WHERE login = $4")).
+		regexp.QuoteMeta("INSERT INTO users_comment(id_film, rating, comment, id_user) SELECT $1, $2, $3, profile.id FROM profile WHERE login = $4")).
 		WithArgs(testComment.IdFilm, testComment.Rating, testComment.Comment, testComment.Username).
 		WillReturnError(fmt.Errorf("db_error"))
 

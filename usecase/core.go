@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"math/rand"
@@ -38,47 +39,46 @@ type Session struct {
 	ExpiresAt time.Time
 }
 
-func GetCore(cfg configs.DbDsnCfg, lg *slog.Logger) (*Core, error) {
-	csrf, err := csrf.GetCsrfRepo(lg)
+func GetCore(cfg_sql configs.DbDsnCfg, cfg_csrf configs.DbRedisCfg, cfg_sessions configs.DbRedisCfg, lg *slog.Logger) (*Core, error) {
+	csrf, err := csrf.GetCsrfRepo(cfg_csrf, lg)
 
 	if err != nil {
 		lg.Error("Csrf repository is not responding")
 		return nil, err
 	}
-
-	session, err := session.GetSessionRepo(lg)
+	session, err := session.GetSessionRepo(cfg_sessions, lg)
 
 	if err != nil {
 		lg.Error("Session repository is not responding")
 		return nil, err
 	}
 
-	films, err := film.GetFilmRepo(cfg, lg)
+	films, err := film.GetFilmRepo(cfg_sql, lg)
 	if err != nil {
 		lg.Error("cant create repo")
 		return nil, err
 	}
-	users, err := profile.GetUserRepo(cfg, lg)
+	users, err := profile.GetUserRepo(cfg_sql, lg)
 	if err != nil {
 		lg.Error("cant create repo")
 		return nil, err
 	}
-	genres, err := genre.GetGenreRepo(cfg, lg)
+	genres, err := genre.GetGenreRepo(cfg_sql, lg)
 	if err != nil {
 		lg.Error("cant create repo")
 		return nil, err
 	}
-	comments, err := comment.GetCommentRepo(cfg, lg)
+	comments, err := comment.GetCommentRepo(cfg_sql, lg)
 	if err != nil {
 		lg.Error("cant create repo")
 		return nil, err
 	}
-	crew, err := crew.GetCrewRepo(cfg, lg)
+	crew, err := crew.GetCrewRepo(cfg_sql, lg)
 	if err != nil {
 		lg.Error("cant create repo")
 		return nil, err
 	}
-	professions, err := profession.GetProfessionRepo(cfg, lg)
+	professions, err := profession.GetProfessionRepo(cfg_sql, lg)
 	if err != nil {
 		lg.Error("cant create repo")
 		return nil, err
@@ -99,9 +99,9 @@ func GetCore(cfg configs.DbDsnCfg, lg *slog.Logger) (*Core, error) {
 
 var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
-func (core *Core) CheckCsrfToken(token string) (bool, error) {
+func (core *Core) CheckCsrfToken(ctx context.Context, token string) (bool, error) {
 	core.mutex.RLock()
-	found, err := core.csrfTokens.CheckActiveCsrf(token, core.lg)
+	found, err := core.csrfTokens.CheckActiveCsrf(ctx, token, core.lg)
 	core.mutex.RUnlock()
 
 	if err != nil {
@@ -111,11 +111,12 @@ func (core *Core) CheckCsrfToken(token string) (bool, error) {
 	return found, err
 }
 
-func (core *Core) CreateCsrfToken() (string, error) {
+func (core *Core) CreateCsrfToken(ctx context.Context) (string, error) {
 	sid := RandStringRunes(32)
 
 	core.mutex.Lock()
 	csrfAdded, err := core.csrfTokens.AddCsrf(
+		ctx,
 		csrf.Csrf{
 			SID:       sid,
 			ExpiresAt: time.Now().Add(3 * time.Hour),
@@ -135,9 +136,9 @@ func (core *Core) CreateCsrfToken() (string, error) {
 	return sid, nil
 }
 
-func (core *Core) GetUserName(sid string) (string, error) {
+func (core *Core) GetUserName(ctx context.Context, sid string) (string, error) {
 	core.mutex.RLock()
-	login, err := core.sessions.GetUserLogin(sid, core.lg)
+	login, err := core.sessions.GetUserLogin(ctx, sid, core.lg)
 	core.mutex.RUnlock()
 
 	if err != nil {
@@ -147,7 +148,7 @@ func (core *Core) GetUserName(sid string) (string, error) {
 	return login, nil
 }
 
-func (core *Core) CreateSession(login string) (string, session.Session, error) {
+func (core *Core) CreateSession(ctx context.Context, login string) (string, session.Session, error) {
 	sid := RandStringRunes(32)
 
 	newSession := session.Session{
@@ -157,7 +158,7 @@ func (core *Core) CreateSession(login string) (string, session.Session, error) {
 	}
 
 	core.mutex.Lock()
-	sessionAdded, err := core.sessions.AddSession(newSession, core.lg)
+	sessionAdded, err := core.sessions.AddSession(ctx, newSession, core.lg)
 	core.mutex.Unlock()
 
 	if !sessionAdded && err != nil {
@@ -171,9 +172,9 @@ func (core *Core) CreateSession(login string) (string, session.Session, error) {
 	return sid, newSession, nil
 }
 
-func (core *Core) FindActiveSession(sid string) (bool, error) {
+func (core *Core) FindActiveSession(ctx context.Context, sid string) (bool, error) {
 	core.mutex.RLock()
-	found, err := core.sessions.CheckActiveSession(sid, core.lg)
+	found, err := core.sessions.CheckActiveSession(ctx, sid, core.lg)
 	core.mutex.RUnlock()
 
 	if err != nil {
@@ -183,9 +184,9 @@ func (core *Core) FindActiveSession(sid string) (bool, error) {
 	return found, nil
 }
 
-func (core *Core) KillSession(sid string) error {
+func (core *Core) KillSession(ctx context.Context, sid string) error {
 	core.mutex.Lock()
-	_, err := core.sessions.DeleteSession(sid, core.lg)
+	_, err := core.sessions.DeleteSession(ctx, sid, core.lg)
 	core.mutex.Unlock()
 
 	if err != nil {
@@ -383,4 +384,14 @@ func (core *Core) EditProfile(prevLogin string, login string, password string, e
 	}
 
 	return nil
+}
+
+func (core *Core) FindUsersComment(login string, filmId uint64) (bool, error) {
+	found, err := core.comments.FindUsersComment(login, filmId)
+	if err != nil {
+		core.lg.Error("find users comment error", "err", err.Error())
+		return false, fmt.Errorf("find users comment error: %w", err)
+	}
+
+	return found, nil
 }

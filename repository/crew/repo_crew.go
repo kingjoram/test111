@@ -109,7 +109,7 @@ func (repo *RepoPostgre) GetFilmCharacters(filmId uint64) ([]Character, error) {
 	characters := []Character{}
 
 	rows, err := repo.db.Query(
-		"SELECT crew.id, name, photo, person_in_film.character_name FROM crew "+
+		"SELECT crew.id, name, photo, person_in_film.character_name, info FROM crew "+
 			"JOIN person_in_film ON crew.id = person_in_film.id_person "+
 			"WHERE id_film = $1 AND id_profession = "+
 			"(SELECT id FROM profession WHERE title = 'актёр')", filmId)
@@ -134,9 +134,9 @@ func (repo *RepoPostgre) GetActor(actorId uint64) (*CrewItem, error) {
 	actor := &CrewItem{}
 
 	err := repo.db.QueryRow(
-		"SELECT id, name, birth_date, photo FROM crew "+
+		"SELECT id, name, birth_date, photo, info FROM crew "+
 			"WHERE id = $1", actorId).
-		Scan(&actor.Id, &actor.Name, &actor.Birthdate, &actor.Photo)
+		Scan(&actor.Id, &actor.Name, &actor.Birthdate, &actor.Photo, &actor.Info)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return actor, nil

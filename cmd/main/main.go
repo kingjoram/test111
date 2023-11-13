@@ -18,7 +18,20 @@ func main() {
 		lg.Error("read config error", "err", err.Error())
 		return
 	}
-	core, err := usecase.GetCore(*config, lg)
+
+	configCsrf, err := configs.ReadCsrfRedisConfig()
+	if err != nil {
+		lg.Error("read config error", "err", err.Error())
+		return
+	}
+
+	configSession, err := configs.ReadSessionRedisConfig()
+	if err != nil {
+		lg.Error("read config error", "err", err.Error())
+		return
+	}
+
+	core, err := usecase.GetCore(*config, *configCsrf, *configSession, lg)
 	if err != nil {
 		lg.Error("cant create core")
 		return

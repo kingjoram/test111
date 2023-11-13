@@ -51,3 +51,7 @@ type ProfileResponse struct {
 	Photo     string `json:"photo"`
 	BirthDate string `json:"birthday"`
 }
+
+type AuthCheckResponse struct {
+	Login string `json:"login"`
+}

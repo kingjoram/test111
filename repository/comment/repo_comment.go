@@ -16,6 +16,7 @@ type ICommentRepo interface {
 	GetFilmRating(filmId uint64) (float64, uint64, error)
 	GetFilmComments(filmId uint64, first uint64, limit uint64) ([]CommentItem, error)
 	AddComment(filmId uint64, userId string, rating uint16, text string) error
+	FindUsersComment(login string, filmId uint64) (bool, error)
 }
 
 type RepoPostgre struct {
@@ -74,7 +75,7 @@ func (repo *RepoPostgre) GetFilmComments(filmId uint64, first uint64, limit uint
 	comments := []CommentItem{}
 
 	rows, err := repo.db.Query(
-		"SELECT profile.login, rating, comment FROM users_comment "+
+		"SELECT profile.login, rating, comment, profile.photo FROM users_comment "+
 			"JOIN profile ON users_comment.id_user = profile.id "+
 			"WHERE id_film = $1 "+
 			"OFFSET $2 LIMIT $3", filmId, first, limit)
@@ -85,7 +86,7 @@ func (repo *RepoPostgre) GetFilmComments(filmId uint64, first uint64, limit uint
 
 	for rows.Next() {
 		post := CommentItem{}
-		err := rows.Scan(&post.Username, &post.Rating, &post.Comment)
+		err := rows.Scan(&post.Username, &post.Rating, &post.Comment, post.Photo)
 		if err != nil {
 			return nil, fmt.Errorf("GetFilmRating scan err: %w", err)
 		}
@@ -98,11 +99,28 @@ func (repo *RepoPostgre) GetFilmComments(filmId uint64, first uint64, limit uint
 func (repo *RepoPostgre) AddComment(filmId uint64, userLogin string, rating uint16, text string) error {
 	_, err := repo.db.Exec(
 		"INSERT INTO users_comment(id_film, rating, comment, id_user) "+
-			"SELECT $1, $2, $3', profile.id FROM profile "+
+			"SELECT $1, $2, $3, profile.id FROM profile "+
 			"WHERE login = $4", filmId, rating, text, userLogin)
 	if err != nil {
 		return fmt.Errorf("AddComment: %w", err)
 	}
 
 	return nil
+}
+
+func (repo *RepoPostgre) FindUsersComment(login string, filmId uint64) (bool, error) {
+	var id uint64
+	err := repo.db.QueryRow(
+		"SELECT id_user FROM users_comment "+
+			"JOIN profile ON users_comment.id_user = profile.id "+
+			"WHERE profile.login = $1 AND users_comment.id_film = $2", login, filmId).Scan(&id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+
+		return false, err
+	}
+
+	return true, nil
 }

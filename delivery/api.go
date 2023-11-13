@@ -48,7 +48,7 @@ func (a *API) GetCsrfToken(w http.ResponseWriter, r *http.Request) {
 
 	csrfToken := r.Header.Get("x-csrf-token")
 
-	found, err := a.core.CheckCsrfToken(csrfToken)
+	found, err := a.core.CheckCsrfToken(r.Context(), csrfToken)
 	if err != nil {
 		w.Header().Set("X-CSRF-Token", "null")
 		response.Status = http.StatusInternalServerError
@@ -61,7 +61,7 @@ func (a *API) GetCsrfToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := a.core.CreateCsrfToken()
+	token, err := a.core.CreateCsrfToken(r.Context())
 	if err != nil {
 		w.Header().Set("X-CSRF-Token", "null")
 		response.Status = http.StatusInternalServerError
@@ -161,13 +161,13 @@ func (a *API) LogoutSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	found, _ := a.core.FindActiveSession(session.Value)
+	found, _ := a.core.FindActiveSession(r.Context(), session.Value)
 	if !found {
 		response.Status = http.StatusUnauthorized
 		a.SendResponse(w, response)
 		return
 	} else {
-		err := a.core.KillSession(session.Value)
+		err := a.core.KillSession(r.Context(), session.Value)
 		if err != nil {
 			a.lg.Error("failed to kill session", "err", err.Error())
 		}
@@ -184,7 +184,7 @@ func (a *API) AuthAccept(w http.ResponseWriter, r *http.Request) {
 
 	session, err := r.Cookie("session_id")
 	if err == nil && session != nil {
-		authorized, _ = a.core.FindActiveSession(session.Value)
+		authorized, _ = a.core.FindActiveSession(r.Context(), session.Value)
 	}
 
 	if !authorized {
@@ -192,6 +192,16 @@ func (a *API) AuthAccept(w http.ResponseWriter, r *http.Request) {
 		a.SendResponse(w, response)
 		return
 	}
+	login, err := a.core.GetUserName(r.Context(), session.Value)
+	if err != nil {
+		a.lg.Error("auth accept error", "err", err.Error())
+		response.Status = http.StatusInternalServerError
+		a.SendResponse(w, response)
+		return
+	}
+
+	authCheckResponse := AuthCheckResponse{Login: login}
+	response.Body = authCheckResponse
 
 	a.SendResponse(w, response)
 }
@@ -230,7 +240,7 @@ func (a *API) Signin(w http.ResponseWriter, r *http.Request) {
 		a.SendResponse(w, response)
 		return
 	} else {
-		sid, session, _ := a.core.CreateSession(user.Login)
+		sid, session, _ := a.core.CreateSession(r.Context(), user.Login)
 		cookie := &http.Cookie{
 			Name:     "session_id",
 			Value:    sid,
@@ -317,7 +327,7 @@ func (a *API) Film(w http.ResponseWriter, r *http.Request) {
 		a.SendResponse(w, response)
 		return
 	}
-	if film == nil {
+	if film.Title == "" {
 		response.Status = http.StatusNotFound
 		a.SendResponse(w, response)
 		return
@@ -478,7 +488,7 @@ func (a *API) AddComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	login, err := a.core.GetUserName(session.Value)
+	login, err := a.core.GetUserName(r.Context(), session.Value)
 	if err != nil {
 		a.lg.Error("Add comment error", "err", err.Error())
 		response.Status = http.StatusInternalServerError
@@ -497,6 +507,19 @@ func (a *API) AddComment(w http.ResponseWriter, r *http.Request) {
 
 	if err = json.Unmarshal(body, &commentRequest); err != nil {
 		response.Status = http.StatusBadRequest
+		a.SendResponse(w, response)
+		return
+	}
+
+	found, err := a.core.FindUsersComment(login, commentRequest.FilmId)
+	if err != nil {
+		a.lg.Error("find comment error", "err", err.Error())
+		response.Status = http.StatusInternalServerError
+		a.SendResponse(w, response)
+		return
+	}
+	if found {
+		response.Status = http.StatusNotAcceptable
 		a.SendResponse(w, response)
 		return
 	}
@@ -520,7 +543,7 @@ func (a *API) Profile(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		login, err := a.core.GetUserName(session.Value)
+		login, err := a.core.GetUserName(r.Context(), session.Value)
 		if err != nil {
 			a.lg.Error("Get Profile error", "err", err.Error())
 		}
@@ -556,13 +579,13 @@ func (a *API) Profile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	prevLogin, err := a.core.GetUserName(session.Value)
+	prevLogin, err := a.core.GetUserName(r.Context(), session.Value)
 	if err != nil {
 		a.lg.Error("Get Profile error", "err", err.Error())
 	}
 
-	err = r.ParseForm()
-	if err != nil {
+	err1 := r.ParseMultipartForm(10 << 20)
+	if err1 != nil {
 		a.lg.Error("Post profile error", "err", err.Error())
 		response.Status = http.StatusBadRequest
 		a.SendResponse(w, response)
@@ -573,14 +596,31 @@ func (a *API) Profile(w http.ResponseWriter, r *http.Request) {
 	birthDate := r.FormValue("birthday")
 	password := r.FormValue("password")
 	photo, handler, err := r.FormFile("photo")
-	if err != nil {
+	var filename string
+	if handler == nil {
+		filename = ""
+
+		err = a.core.EditProfile(prevLogin, login, password, email, birthDate, filename)
+		if err != nil {
+			a.lg.Error("Post profile error", "err", err.Error())
+			response.Status = http.StatusInternalServerError
+			a.SendResponse(w, response)
+			return
+		}
+		a.SendResponse(w, response)
+		return
+	}
+
+	filename = "/avatars/" + handler.Filename
+
+	if err != nil && handler != nil && photo != nil {
 		a.lg.Error("Post profile error", "err", err.Error())
 		response.Status = http.StatusBadRequest
 		a.SendResponse(w, response)
 		return
 	}
 
-	filePhoto, err := os.OpenFile("/home/ubuntu/frontend-project/avatars/"+handler.Filename, os.O_WRONLY|os.O_CREATE, 0666)
+	filePhoto, err := os.OpenFile("/home/ubuntu/frontend-project"+filename, os.O_WRONLY|os.O_CREATE, 0666)
 	if err != nil {
 		a.lg.Error("Post profile error", "err", err.Error())
 		response.Status = http.StatusInternalServerError
@@ -597,7 +637,7 @@ func (a *API) Profile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = a.core.EditProfile(prevLogin, login, password, email, birthDate, "/avatars/"+handler.Filename)
+	err = a.core.EditProfile(prevLogin, login, password, email, birthDate, filename)
 	if err != nil {
 		a.lg.Error("Post profile error", "err", err.Error())
 		response.Status = http.StatusInternalServerError

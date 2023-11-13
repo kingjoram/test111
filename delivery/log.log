@@ -1,0 +1,1 @@
+{"time":"2023-11-08T10:11:13.421319746Z","level":"ERROR","msg":"read config error","err":"ReadConfig read file err: open ../../configs/db_dsn.yaml: no such file or directory"}
