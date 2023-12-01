@@ -1,0 +1,41 @@
+name: CI_DEPLOY
+
+on:
+  push:
+    branches:
+      - 'main'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+
+      - name: Setup go
+        uses: actions/setup-go@v4
+        with: 
+          go-version: '1.21'
+
+      - name: Build binary
+        run: go build -o movie_hub
+
+      - name: Copy file
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          port: ${{ secrets.PORT }}
+          key: ${{ secrets.KEY }}
+          source: "movie_hub,movie_hub.service"
+          target: /home/ubuntu/
+
+      - name: executing remote ssh commands using ssh key
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.KEY }}
+          port: ${{ secrets.PORT }}
+          script: |
+            systemctl restart movie_hub

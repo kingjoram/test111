@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/configs"
+	"github.com/go-park-mail-ru/2023_2_Vkladyshi/pkg/models"
 	"github.com/go-redis/redis/v8"
 )
 
@@ -55,7 +56,7 @@ func GetCsrfRepo(csrfConfigs configs.DbRedisCfg, lg *slog.Logger) (*CsrfRepo, er
 	return &csrfRepo, nil
 }
 
-func (redisRepo *CsrfRepo) AddCsrf(ctx context.Context, active Csrf, lg *slog.Logger) (bool, error) {
+func (redisRepo *CsrfRepo) AddCsrf(ctx context.Context, active models.Csrf, lg *slog.Logger) (bool, error) {
 	if !redisRepo.Connection {
 		lg.Error("Redis csrf connection lost")
 		return false, nil
