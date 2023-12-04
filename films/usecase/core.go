@@ -36,7 +36,7 @@ type ICore interface {
 	FavoriteFilmsRemove(userId uint64, filmId uint64) error
 	GetCalendar() (*requests.CalendarResponse, error)
 	GetUserId(ctx context.Context, sid string) (uint64, error)
-	FindActor(name string, birthDate string, films []string, career []string, country string) ([]models.CrewItem, error)
+	FindActor(name string, birthDate string, films []string, career []string, country string) ([]models.Character, error)
 }
 
 type Core struct {
@@ -259,7 +259,7 @@ func (core *Core) GetCalendar() (*requests.CalendarResponse, error) {
 }
 
 func (core *Core) GetUserId(ctx context.Context, sid string) (uint64, error) {
-	conn, err := grpc.Dial(":8081", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.Dial(":50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		core.lg.Error("grpc connect error", "err", err.Error())
 		return 0, fmt.Errorf("grpc connect err: %w", err)
@@ -276,7 +276,7 @@ func (core *Core) GetUserId(ctx context.Context, sid string) (uint64, error) {
 	return uint64(response.Value), nil
 }
 
-func (core *Core) FindActor(name string, birthDate string, films []string, career []string, country string) ([]models.CrewItem, error) {
+func (core *Core) FindActor(name string, birthDate string, films []string, career []string, country string) ([]models.Character, error) {
 	actors, err := core.crew.FindActor(name, birthDate, films, career, country)
 	if err != nil {
 		core.lg.Error("find actor error", "err", err.Error())

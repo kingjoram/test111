@@ -201,7 +201,11 @@ func (a *API) FindFilm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.Body = films
+	filmsResponse := requests.FilmsResponse{
+		Films: films,
+		Total: uint64(len((films))),
+	}
+	response.Body = filmsResponse
 	requests.SendResponse(w, response, a.lg)
 }
 
@@ -438,6 +442,9 @@ func (a *API) FindActor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.Body = actors
+	actorsResponse := requests.ActorsResponse{
+		Actors: actors,
+	}
+	response.Body = actorsResponse
 	requests.SendResponse(w, response, a.lg)
 }

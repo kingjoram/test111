@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/configs"
@@ -158,30 +160,52 @@ func (repo *RepoPostgre) GetUserProfile(login string) (*models.UserItem, error) 
 }
 
 func (repo *RepoPostgre) EditProfile(prevLogin string, login string, password string, email string, birthDate string, photo string) error {
-	if photo == "" {
-		_, err := repo.db.Exec("UPDATE profile "+
-			"SET login = $1, email = $2, birth_date = $3 "+
-			"WHERE login = $4", login, email, birthDate, prevLogin)
-		if err != nil {
-			return fmt.Errorf("failed to edit profile in db: %w", err)
-		}
-		return nil
+	var s strings.Builder
+	paramNum := 1
+	var params []interface{}
 
+	s.WriteString("UPDATE profile SET ")
+
+	if login != "" {
+		s.WriteString("login = $" + strconv.Itoa(paramNum))
+		paramNum++
+		params = append(params, login)
 	}
-
-	if password == "" {
-		_, err := repo.db.Exec("UPDATE profile "+
-			"SET login = $1, photo = $2, email = $3, birth_date = $4 "+
-			"WHERE login = $5", login, photo, email, birthDate, prevLogin)
-		if err != nil {
-			return fmt.Errorf("failed to edit profile in db: %w", err)
+	if photo != "" {
+		if paramNum != 1 {
+			s.WriteString(", ")
 		}
-		return nil
+		s.WriteString("photo = $" + strconv.Itoa(paramNum))
+		paramNum++
+		params = append(params, photo)
 	}
-
-	_, err := repo.db.Exec("UPDATE profile "+
-		"SET login = $1, password = $2, photo = $3, email = $4, birth_date = $5 "+
-		"WHERE login = $6", login, password, photo, email, birthDate, prevLogin)
+	if email != "" {
+		if paramNum != 1 {
+			s.WriteString(", ")
+		}
+		s.WriteString("email = $" + strconv.Itoa(paramNum))
+		paramNum++
+		params = append(params, email)
+	}
+	if password != "" {
+		if paramNum != 1 {
+			s.WriteString(", ")
+		}
+		s.WriteString("password = $" + strconv.Itoa(paramNum))
+		paramNum++
+		params = append(params, password)
+	}
+	if birthDate != "" {
+		if paramNum != 1 {
+			s.WriteString(", ")
+		}
+		s.WriteString("birth_date = $" + strconv.Itoa(paramNum))
+		paramNum++
+		params = append(params, birthDate)
+	}
+	s.WriteString(" WHERE login = $" + strconv.Itoa(paramNum))
+	params = append(params, prevLogin)
+	_, err := repo.db.Exec(s.String(), params...)
 	if err != nil {
 		return fmt.Errorf("failed to edit profile in db: %w", err)
 	}
