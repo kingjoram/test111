@@ -209,8 +209,8 @@ func TestEditProfile(t *testing.T) {
 	}
 
 	mock.ExpectExec(
-		regexp.QuoteMeta("UPDATE profile SET login = $1, photo = $2, email = $3, password = $4, birth_date = $5 WHERE login = $6")).
-		WithArgs(testUser.Login, testUser.Photo, testUser.Email, testUser.Password, testUser.Birthdate, prev).
+		regexp.QuoteMeta("UPDATE profile SET login = $1, password = $2, photo = $3, email = $4, birth_date = $5 WHERE login = $6")).
+		WithArgs(testUser.Login, testUser.Password, testUser.Photo, testUser.Email, testUser.Birthdate, prev).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	repo := &RepoPostgre{
@@ -228,11 +228,15 @@ func TestEditProfile(t *testing.T) {
 	}
 
 	mock.ExpectExec(
-		regexp.QuoteMeta("UPDATE profile SET login = $1, photo = $2, email = $3, password = $4, birth_date = $5 WHERE login = $6")).
+		regexp.QuoteMeta("UPDATE profile SET login = $1, password = $2, photo = $3, email = $4, birth_date = $5 WHERE login = $6")).
 		WithArgs(testUser.Login, testUser.Password, testUser.Photo, testUser.Email, testUser.Birthdate, prev).
 		WillReturnError(fmt.Errorf("db_error"))
 
 	err = repo.EditProfile(prev, testUser.Login, testUser.Password, testUser.Email, testUser.Birthdate, testUser.Photo)
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+		return
+	}
 	if err == nil {
 		t.Errorf("expected error, got nil")
 		return

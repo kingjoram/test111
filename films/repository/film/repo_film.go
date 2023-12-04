@@ -244,10 +244,10 @@ func (repo *RepoPostgre) FindFilm(title string, dateFrom string, dateTo string,
 
 	for rows.Next() {
 		post := models.FilmItem{}
-		err := rows.Scan(&post.Title, &post.Id, &post.Poster, &post.Rating)
-		if err != nil {
-			return nil, fmt.Errorf("find film scan err: %w", err)
-		}
+                err := rows.Scan(&post.Title, &post.Id, &post.Poster, &post.Rating)
+                if err != nil {
+                   return nil, fmt.Errorf("find film scan err: %w", err)
+                }
 		films = append(films, post)
 	}
 
@@ -256,7 +256,6 @@ func (repo *RepoPostgre) FindFilm(title string, dateFrom string, dateTo string,
 
 func (repo *RepoPostgre) GetFavoriteFilms(userId uint64, start uint64, end uint64) ([]models.FilmItem, error) {
 	films := []models.FilmItem{}
-
 	rows, err := repo.db.Query(
 		"SELECT film.title, film.id, film.poster FROM film "+
 			"JOIN users_favorite_film ON film.id = users_favorite_film.id_film "+
@@ -269,7 +268,7 @@ func (repo *RepoPostgre) GetFavoriteFilms(userId uint64, start uint64, end uint6
 
 	for rows.Next() {
 		post := models.FilmItem{}
-		err := rows.Scan(&post.Id, &post.Title, &post.Poster)
+		err := rows.Scan(&post.Title, &post.Id, &post.Poster)
 		if err != nil {
 			return nil, fmt.Errorf("get favorite films scan err: %w", err)
 		}

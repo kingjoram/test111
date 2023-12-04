@@ -40,10 +40,6 @@ type ActorResponse struct {
 	Info      string                  `json:"info_text"`
 }
 
-type ActorsResponse struct {
-	Actors []models.Character `json:"actors"`
-}
-
 type CommentResponse struct {
 	Comments []models.CommentItem `json:"comment"`
 }

@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"sync"
 	"time"
+        "fmt"
 
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/configs"
 	"github.com/go-redis/redis/v8"
@@ -20,12 +21,13 @@ type SessionRepo struct {
 func (redisRepo *SessionRepo) CheckRedisSessionConnection(sessionCfg configs.DbRedisCfg) {
 	ctx := context.Background()
 	for {
-		_, err := redisRepo.sessionRedisClient.Ping(ctx).Result()
+		val, err := redisRepo.sessionRedisClient.Ping(ctx).Result()
 		mutex.Lock()
 		mutex.RLock()
 		redisRepo.Connection = err == nil
 		mutex.Unlock()
 		mutex.RUnlock()
+                fmt.Println(redisRepo.Connection, val)
 		time.Sleep(time.Duration(sessionCfg.Timer) * time.Second)
 	}
 }
@@ -49,14 +51,13 @@ func GetSessionRepo(sessionCfg configs.DbRedisCfg, lg *slog.Logger) (*SessionRep
 	}
 
 	go sessionRepo.CheckRedisSessionConnection(sessionCfg)
-
 	return &sessionRepo, nil
 }
 
 func (redisRepo *SessionRepo) AddSession(ctx context.Context, active Session, lg *slog.Logger) (bool, error) {
 	if !redisRepo.Connection {
-		lg.Error("Redis session connection lost")
-		return false, nil
+//		lg.Error("Redis session connection lost")
+//		return false, nil
 	}
 
 	redisRepo.sessionRedisClient.Set(ctx, active.SID, active.Login, 24*time.Hour)
@@ -72,11 +73,12 @@ func (redisRepo *SessionRepo) AddSession(ctx context.Context, active Session, lg
 
 func (redisRepo *SessionRepo) GetUserLogin(ctx context.Context, sid string, lg *slog.Logger) (string, error) {
 	if !redisRepo.Connection {
-		lg.Error("Redis session connection lost")
-		return "", nil
+//		lg.Error("Redis session connection lost")
+//		return "", nil
 	}
-
+                                                                       
 	value, err := redisRepo.sessionRedisClient.Get(ctx, sid).Result()
+        fmt.Println(value)
 	if err != nil {
 		lg.Error("Error, cannot find session " + sid)
 		return "", err
