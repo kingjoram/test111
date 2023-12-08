@@ -34,10 +34,7 @@ func GetApi(c *usecase.Core, l *slog.Logger, cfg *configs.DbDsnCfg) *API {
 	mx.HandleFunc("/api/v1/favorite/films", api.FavoriteFilms)
 	mx.HandleFunc("/api/v1/favorite/film/add", api.FavoriteFilmsAdd)
 	mx.HandleFunc("/api/v1/favorite/film/remove", api.FavoriteFilmsRemove)
-	mx.HandleFunc("/api/v1/favorite/actors", api.FavoriteActors)
-	mx.HandleFunc("/api/v1/favorite/actor/add", api.FavoriteActorsAdd)
-	mx.HandleFunc("/api/v1/favorite/actor/remove", api.FavoriteActorsRemove)
-	mx.HandleFunc("/api/v1/find", api.FindFilm)
+	mx.HandleFunc("/api/v1/search/film", api.FindFilm)
 	mx.HandleFunc("/api/v1/search/actor", api.FindActor)
 	mx.HandleFunc("/api/v1/calendar", api.Calendar)
 
@@ -196,7 +193,7 @@ func (a *API) FindFilm(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		a.lg.Error("find film error", "err", err.Error())
-		response.Status = http.StatusBadRequest
+		response.Status = http.StatusInternalServerError
 		requests.SendResponse(w, response, a.lg)
 		return
 	}
@@ -218,14 +215,8 @@ func (a *API) FavoriteFilmsAdd(w http.ResponseWriter, r *http.Request) {
 	}
 
 	session, err := r.Cookie("session_id")
-	if err == http.ErrNoCookie {
+	if errors.Is(err, http.ErrNoCookie) {
 		response.Status = http.StatusUnauthorized
-		requests.SendResponse(w, response, a.lg)
-		return
-	}
-	if err != nil {
-		a.lg.Error("favorite films error", "err", err.Error())
-		response.Status = http.StatusInternalServerError
 		requests.SendResponse(w, response, a.lg)
 		return
 	}
@@ -247,8 +238,8 @@ func (a *API) FavoriteFilmsAdd(w http.ResponseWriter, r *http.Request) {
 
 	err = a.core.FavoriteFilmsAdd(userId, filmId)
 	if err != nil {
-		if errors.Is(err, usecase.ErrNotFound) {
-			response.Status = http.StatusBadRequest
+		if errors.Is(err, usecase.ErrFoundFavorite) {
+			response.Status = http.StatusNotAcceptable
 			requests.SendResponse(w, response, a.lg)
 			return
 		}
@@ -358,33 +349,6 @@ func (a *API) FavoriteFilms(w http.ResponseWriter, r *http.Request) {
 	requests.SendResponse(w, response, a.lg)
 }
 
-func (a *API) FavoriteActorsAdd(w http.ResponseWriter, r *http.Request) {
-	response := requests.Response{Status: http.StatusOK, Body: nil}
-	if r.Method != http.MethodGet {
-		response.Status = http.StatusMethodNotAllowed
-		requests.SendResponse(w, response, a.lg)
-		return
-	}
-}
-
-func (a *API) FavoriteActorsRemove(w http.ResponseWriter, r *http.Request) {
-	response := requests.Response{Status: http.StatusOK, Body: nil}
-	if r.Method != http.MethodGet {
-		response.Status = http.StatusMethodNotAllowed
-		requests.SendResponse(w, response, a.lg)
-		return
-	}
-}
-
-func (a *API) FavoriteActors(w http.ResponseWriter, r *http.Request) {
-	response := requests.Response{Status: http.StatusOK, Body: nil}
-	if r.Method != http.MethodGet {
-		response.Status = http.StatusMethodNotAllowed
-		requests.SendResponse(w, response, a.lg)
-		return
-	}
-}
-
 func (a *API) Calendar(w http.ResponseWriter, r *http.Request) {
 	response := requests.Response{Status: http.StatusOK, Body: nil}
 	if r.Method != http.MethodGet {
@@ -437,11 +401,14 @@ func (a *API) FindActor(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		a.lg.Error("find actor error", "err", err.Error())
-		response.Status = http.StatusBadRequest
+		response.Status = http.StatusInternalServerError
 		requests.SendResponse(w, response, a.lg)
 		return
 	}
 
-	response.Body = actors
+	actorsResponse := requests.ActorsResponse{
+		Actors: actors,
+	}
+	response.Body = actorsResponse
 	requests.SendResponse(w, response, a.lg)
 }

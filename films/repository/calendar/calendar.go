@@ -9,7 +9,11 @@ import (
 
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/configs"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/pkg/models"
+
+	_ "github.com/jackc/pgx/stdlib"
 )
+
+//go:generate mockgen -source=calendar.go -destination=../../mocks/calendar_repo_mock.go -package=mocks
 
 type ICalendarRepo interface {
 	GetCalendar() ([]models.DayItem, error)
@@ -59,7 +63,7 @@ func (repo *RepoPostgre) GetCalendar() ([]models.DayItem, error) {
 	rows, err := repo.db.Query("SELECT title, release_day FROM calendar " +
 		"WHERE release_month = DATE_PART('MONTH', CURRENT_DATE) " +
 		"ORDER BY release_day")
-	if err != nil && errors.Is(err, sql.ErrNoRows) {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
 	defer rows.Close()

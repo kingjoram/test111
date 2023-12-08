@@ -11,6 +11,8 @@ import (
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/pkg/models"
 )
 
+//go:generate mockgen -source=repo_profession.go -destination=../../mocks/profession_repo_mock.go -package=mocks
+
 type IProfessionRepo interface {
 	GetActorsProfessions(actorId uint64) ([]models.ProfessionItem, error)
 }

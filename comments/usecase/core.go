@@ -56,8 +56,8 @@ func (core *Core) AddComment(filmId uint64, userId uint64, rating uint16, text s
 
 	err = core.comments.AddComment(filmId, userId, rating, text)
 	if err != nil {
-		core.lg.Error("Add Comment error", "err", err.Error())
-		return false, fmt.Errorf("GetActorsCareer err: %w", err)
+		core.lg.Error("add Comment error", "err", err.Error())
+		return false, fmt.Errorf("add comment err: %w", err)
 	}
 
 	return false, nil

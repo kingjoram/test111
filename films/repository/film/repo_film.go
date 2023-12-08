@@ -16,6 +16,8 @@ import (
 	_ "github.com/jackc/pgx/stdlib"
 )
 
+//go:generate mockgen -source=repo_film.go -destination=../../mocks/film_repo_mock.go -package=mocks
+
 type IFilmsRepo interface {
 	GetFilmsByGenre(genre uint64, start uint64, end uint64) ([]models.FilmItem, error)
 	GetFilms(start uint64, end uint64) ([]models.FilmItem, error)
@@ -27,7 +29,7 @@ type IFilmsRepo interface {
 	GetFavoriteFilms(userId uint64, start uint64, end uint64) ([]models.FilmItem, error)
 	AddFavoriteFilm(userId uint64, filmId uint64) error
 	RemoveFavoriteFilm(userId uint64, filmId uint64) error
-	CheckFilm(filmId uint64) (bool, error)
+	CheckFilm(userId uint64, filmId uint64) (bool, error)
 }
 
 type RepoPostgre struct {
@@ -244,10 +246,10 @@ func (repo *RepoPostgre) FindFilm(title string, dateFrom string, dateTo string,
 
 	for rows.Next() {
 		post := models.FilmItem{}
-                err := rows.Scan(&post.Title, &post.Id, &post.Poster, &post.Rating)
-                if err != nil {
-                   return nil, fmt.Errorf("find film scan err: %w", err)
-                }
+		err := rows.Scan(&post.Title, &post.Id, &post.Poster, &post.Rating)
+		if err != nil {
+			return nil, fmt.Errorf("find film scan err: %w", err)
+		}
 		films = append(films, post)
 	}
 
@@ -256,6 +258,7 @@ func (repo *RepoPostgre) FindFilm(title string, dateFrom string, dateTo string,
 
 func (repo *RepoPostgre) GetFavoriteFilms(userId uint64, start uint64, end uint64) ([]models.FilmItem, error) {
 	films := []models.FilmItem{}
+
 	rows, err := repo.db.Query(
 		"SELECT film.title, film.id, film.poster FROM film "+
 			"JOIN users_favorite_film ON film.id = users_favorite_film.id_film "+
@@ -268,7 +271,7 @@ func (repo *RepoPostgre) GetFavoriteFilms(userId uint64, start uint64, end uint6
 
 	for rows.Next() {
 		post := models.FilmItem{}
-		err := rows.Scan(&post.Title, &post.Id, &post.Poster)
+		err := rows.Scan(&post.Id, &post.Title, &post.Poster)
 		if err != nil {
 			return nil, fmt.Errorf("get favorite films scan err: %w", err)
 		}
@@ -299,9 +302,9 @@ func (repo *RepoPostgre) RemoveFavoriteFilm(userId uint64, filmId uint64) error 
 	return nil
 }
 
-func (repo *RepoPostgre) CheckFilm(filmId uint64) (bool, error) {
+func (repo *RepoPostgre) CheckFilm(userId uint64, filmId uint64) (bool, error) {
 	film := models.FilmItem{}
-	err := repo.db.QueryRow("SELECT id FROM film WHERE id = $1", filmId).Scan(&film.Id)
+	err := repo.db.QueryRow("SELECT id_film FROM users_favorite_film WHERE id_film = $1 AND id_user = $2", filmId, userId).Scan(&film.Id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return false, nil

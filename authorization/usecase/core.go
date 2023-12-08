@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"math/rand"
@@ -9,10 +10,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-park-mail-ru/2023_2_Vkladyshi/authorization/repository/csrf"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/authorization/repository/profile"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/authorization/repository/session"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/configs"
-	"github.com/go-park-mail-ru/2023_2_Vkladyshi/errors"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/pkg/models"
 )
 
@@ -26,14 +27,20 @@ type ICore interface {
 	GetUserName(ctx context.Context, sid string) (string, error)
 	GetUserProfile(login string) (*models.UserItem, error)
 	EditProfile(prevLogin string, login string, password string, email string, birthDate string, photo string) error
+	CheckCsrfToken(ctx context.Context, token string) (bool, error)
+	CreateCsrfToken(ctx context.Context) (string, error)
 }
 
 type Core struct {
-	sessions session.SessionRepo
-	mutex    sync.RWMutex
-	lg       *slog.Logger
-	users    profile.IUserRepo
+	sessions   session.SessionRepo
+	mutex      sync.RWMutex
+	lg         *slog.Logger
+	users      profile.IUserRepo
+	csrfTokens csrf.CsrfRepo
 }
+
+var InvalideEmail = errors.New("invalide email")
+var LostConnection = errors.New("Redis connection lost")
 
 var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
@@ -51,10 +58,17 @@ func GetCore(cfg_sql *configs.DbDsnCfg, cfg_csrf configs.DbRedisCfg, cfg_session
 		return nil, err
 	}
 
+	csrf, err := csrf.GetCsrfRepo(cfg_csrf, lg)
+	if err != nil {
+		lg.Error("Csrf repository is not responding")
+		return nil, err
+	}
+
 	core := Core{
-		sessions: *session,
-		lg:       lg.With("module", "core"),
-		users:    users,
+		sessions:   *session,
+		lg:         lg.With("module", "core"),
+		users:      users,
+		csrfTokens: *csrf,
 	}
 	return &core, nil
 }
@@ -131,7 +145,7 @@ func (core *Core) KillSession(ctx context.Context, sid string) error {
 
 func (core *Core) CreateUserAccount(login string, password string, name string, birthDate string, email string) error {
 	if matched, _ := regexp.MatchString(`@`, email); !matched {
-		return errors.InvalideEmail
+		return InvalideEmail
 	}
 	err := core.users.CreateUser(login, password, name, birthDate, email)
 	if err != nil {
@@ -177,4 +191,41 @@ func (core *Core) GetUserProfile(login string) (*models.UserItem, error) {
 	}
 
 	return profile, nil
+}
+
+func (core *Core) CheckCsrfToken(ctx context.Context, token string) (bool, error) {
+	core.mutex.RLock()
+	found, err := core.csrfTokens.CheckActiveCsrf(ctx, token, core.lg)
+	core.mutex.RUnlock()
+
+	if err != nil {
+		return false, err
+	}
+
+	return found, err
+}
+
+func (core *Core) CreateCsrfToken(ctx context.Context) (string, error) {
+	sid := RandStringRunes(32)
+
+	core.mutex.Lock()
+	csrfAdded, err := core.csrfTokens.AddCsrf(
+		ctx,
+		models.Csrf{
+			SID:       sid,
+			ExpiresAt: time.Now().Add(3 * time.Hour),
+		},
+		core.lg,
+	)
+	core.mutex.Unlock()
+
+	if !csrfAdded && err != nil {
+		return "", err
+	}
+
+	if !csrfAdded {
+		return "", nil
+	}
+
+	return sid, nil
 }

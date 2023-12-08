@@ -1,6 +1,7 @@
 package comment
 
 import (
+	"database/sql"
 	"fmt"
 	"reflect"
 	"regexp"
@@ -175,6 +176,21 @@ func TestHasUsersComment(t *testing.T) {
 	}
 	if found {
 		t.Errorf("waited not to find comment")
+		return
+	}
+
+	mock.ExpectQuery(
+		regexp.QuoteMeta(sqlQuery)).
+		WithArgs(idUser, idFilm).
+		WillReturnError(sql.ErrNoRows)
+
+	found, err = repo.HasUsersComment(idUser, idFilm)
+	if err != nil {
+		t.Errorf("waited no errors")
+		return
+	}
+	if found {
+		t.Errorf("waited not to find")
 		return
 	}
 }

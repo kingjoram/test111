@@ -13,6 +13,8 @@ import (
 	_ "github.com/jackc/pgx/stdlib"
 )
 
+//go:generate mockgen -source=repo_genre.go -destination=../../mocks/genre_repo_mock.go -package=mocks
+
 type IGenreRepo interface {
 	GetFilmGenres(filmId uint64) ([]models.GenreItem, error)
 	GetGenreById(genreId uint64) (string, error)

@@ -7,8 +7,7 @@ import (
 	delivery_auth "github.com/go-park-mail-ru/2023_2_Vkladyshi/authorization/delivery/http"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/configs"
 
-        
-        delivery_auth_grpc "github.com/go-park-mail-ru/2023_2_Vkladyshi/authorization/delivery/grpc"
+	delivery_auth_grpc "github.com/go-park-mail-ru/2023_2_Vkladyshi/authorization/delivery/grpc"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/authorization/usecase"
 )
 
@@ -39,8 +38,8 @@ func main() {
 		lg.Error("cant create core")
 		return
 	}
-        go delivery_auth_grpc.ListenAndServeGrpc(lg)
+	go delivery_auth_grpc.ListenAndServeGrpc(lg)
 	api := delivery_auth.GetApi(core, lg)
 	api.ListenAndServe()
-        select {}
+	select {}
 }

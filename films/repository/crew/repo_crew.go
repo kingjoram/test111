@@ -16,12 +16,14 @@ import (
 	_ "github.com/jackc/pgx/stdlib"
 )
 
+//go:generate mockgen -source=repo_crew.go -destination=../../mocks/crew_repo_mock.go -package=mocks
+
 type ICrewRepo interface {
 	GetFilmDirectors(filmId uint64) ([]models.CrewItem, error)
 	GetFilmScenarists(filmId uint64) ([]models.CrewItem, error)
 	GetFilmCharacters(filmId uint64) ([]models.Character, error)
 	GetActor(actorId uint64) (*models.CrewItem, error)
-	FindActor(name string, birthDate string, films []string, career []string, country string) ([]models.CrewItem, error)
+	FindActor(name string, birthDate string, films []string, career []string, country string) ([]models.Character, error)
 }
 
 type RepoPostgre struct {
@@ -152,8 +154,8 @@ func (repo *RepoPostgre) GetActor(actorId uint64) (*models.CrewItem, error) {
 	return actor, nil
 }
 
-func (repo *RepoPostgre) FindActor(name string, birthDate string, films []string, career []string, country string) ([]models.CrewItem, error) {
-	actors := []models.CrewItem{}
+func (repo *RepoPostgre) FindActor(name string, birthDate string, films []string, career []string, country string) ([]models.Character, error) {
+	actors := []models.Character{}
 	var hasWhere bool
 	paramNum := 1
 	var params []interface{}
@@ -223,8 +225,8 @@ func (repo *RepoPostgre) FindActor(name string, birthDate string, films []string
 	defer rows.Close()
 
 	for rows.Next() {
-		post := models.CrewItem{}
-		err := rows.Scan(&post.Id, &post.Name, &post.Photo)
+		post := models.Character{}
+		err := rows.Scan(&post.IdActor, &post.NameActor, &post.ActorPhoto)
 		if err != nil {
 			return nil, fmt.Errorf("find actor scan err: %w", err)
 		}
