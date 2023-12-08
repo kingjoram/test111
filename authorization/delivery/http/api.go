@@ -5,6 +5,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/authorization/usecase"
@@ -44,6 +45,7 @@ func GetApi(c *usecase.Core, l *slog.Logger) *API {
 	mx.HandleFunc("/logout", api.LogoutSession)
 	mx.HandleFunc("/authcheck", api.AuthAccept)
 	mx.HandleFunc("/api/v1/csrf", api.GetCsrfToken)
+	mx.HandleFunc("/api/v1/settings", api.Profile)
 
 	api.mx = mx
 
@@ -113,6 +115,16 @@ func (a *API) Signin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	csrfToken := r.Header.Get("x-csrf-token")
+
+	_, err := a.core.CheckCsrfToken(r.Context(), csrfToken)
+	if err != nil {
+		w.Header().Set("X-CSRF-Token", "null")
+		response.Status = http.StatusPreconditionFailed
+		requests.SendResponse(w, response, a.lg)
+		return
+	}
+
 	var request requests.SigninRequest
 
 	body, err := io.ReadAll(r.Body)
@@ -158,6 +170,16 @@ func (a *API) Signup(w http.ResponseWriter, r *http.Request) {
 	response := requests.Response{Status: http.StatusOK, Body: nil}
 	if r.Method != http.MethodPost {
 		response.Status = http.StatusMethodNotAllowed
+		requests.SendResponse(w, response, a.lg)
+		return
+	}
+
+	csrfToken := r.Header.Get("x-csrf-token")
+
+	_, err := a.core.CheckCsrfToken(r.Context(), csrfToken)
+	if err != nil {
+		w.Header().Set("X-CSRF-Token", "null")
+		response.Status = http.StatusPreconditionFailed
 		requests.SendResponse(w, response, a.lg)
 		return
 	}
@@ -232,5 +254,129 @@ func (a *API) GetCsrfToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("X-CSRF-Token", token)
+	requests.SendResponse(w, response, a.lg)
+}
+
+func (a *API) Profile(w http.ResponseWriter, r *http.Request) {
+	response := requests.Response{Status: http.StatusOK, Body: nil}
+	if r.Method == http.MethodGet {
+		session, err := r.Cookie("session_id")
+		if err == http.ErrNoCookie {
+			response.Status = http.StatusUnauthorized
+			requests.SendResponse(w, response, a.lg)
+			return
+		}
+
+		login, err := a.core.GetUserName(r.Context(), session.Value)
+		if err != nil {
+			a.lg.Error("Get Profile error", "err", err.Error())
+		}
+
+		profile, err := a.core.GetUserProfile(login)
+		if err != nil {
+			response.Status = http.StatusInternalServerError
+			requests.SendResponse(w, response, a.lg)
+			return
+		}
+
+		profileResponse := requests.ProfileResponse{
+			Email:     profile.Email,
+			Name:      profile.Name,
+			Login:     profile.Login,
+			Photo:     profile.Photo,
+			BirthDate: profile.Birthdate,
+		}
+
+		response.Body = profileResponse
+		requests.SendResponse(w, response, a.lg)
+		return
+	}
+	if r.Method != http.MethodPost {
+		response.Status = http.StatusUnauthorized
+		requests.SendResponse(w, response, a.lg)
+		return
+	}
+	session, err := r.Cookie("session_id")
+	if err == http.ErrNoCookie {
+		response.Status = http.StatusUnauthorized
+		requests.SendResponse(w, response, a.lg)
+		return
+	}
+
+	prevLogin, err := a.core.GetUserName(r.Context(), session.Value)
+	if err != nil {
+		a.lg.Error("Get Profile error", "err", err.Error())
+	}
+
+	err1 := r.ParseMultipartForm(10 << 20)
+	if err1 != nil {
+		a.lg.Error("Post profile error", "err", err.Error())
+		response.Status = http.StatusBadRequest
+		requests.SendResponse(w, response, a.lg)
+		return
+	}
+	email := r.FormValue("email")
+	login := r.FormValue("login")
+	birthDate := r.FormValue("birthday")
+	password := r.FormValue("password")
+	photo, handler, err := r.FormFile("photo")
+
+    isRepeatPassword, err := a.core.CheckPassword(login, password)
+
+	if isRepeatPassword {
+		response.Status = http.StatusConflict
+		requests.SendResponse(w, response, a.lg)
+		return
+	}
+	
+	var filename string
+	if handler == nil {
+		filename = ""
+
+		err = a.core.EditProfile(prevLogin, login, password, email, birthDate, filename)
+		if err != nil {
+			a.lg.Error("Post profile error", "err", err.Error())
+			response.Status = http.StatusInternalServerError
+			requests.SendResponse(w, response, a.lg)
+			return
+		}
+		requests.SendResponse(w, response, a.lg)
+		return
+	}
+
+	filename = "/avatars/" + handler.Filename
+
+	if err != nil && handler != nil && photo != nil {
+		a.lg.Error("Post profile error", "err", err.Error())
+		response.Status = http.StatusBadRequest
+		requests.SendResponse(w, response, a.lg)
+		return
+	}
+
+	filePhoto, err := os.OpenFile("/home/ubuntu/frontend-project"+filename, os.O_WRONLY|os.O_CREATE, 0666)
+	if err != nil {
+		a.lg.Error("Post profile error", "err", err.Error())
+		response.Status = http.StatusInternalServerError
+		requests.SendResponse(w, response, a.lg)
+		return
+	}
+	defer filePhoto.Close()
+
+	_, err = io.Copy(filePhoto, photo)
+	if err != nil {
+		a.lg.Error("Post profile error", "err", err.Error())
+		response.Status = http.StatusInternalServerError
+		requests.SendResponse(w, response, a.lg)
+		return
+	}
+
+	err = a.core.EditProfile(prevLogin, login, password, email, birthDate, filename)
+	if err != nil {
+		a.lg.Error("Post profile error", "err", err.Error())
+		response.Status = http.StatusInternalServerError
+		requests.SendResponse(w, response, a.lg)
+		return
+	}
+
 	requests.SendResponse(w, response, a.lg)
 }

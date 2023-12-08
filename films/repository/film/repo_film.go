@@ -271,7 +271,7 @@ func (repo *RepoPostgre) GetFavoriteFilms(userId uint64, start uint64, end uint6
 
 	for rows.Next() {
 		post := models.FilmItem{}
-		err := rows.Scan(&post.Id, &post.Title, &post.Poster)
+		err := rows.Scan(&post.Title, &post.Id, &post.Poster)
 		if err != nil {
 			return nil, fmt.Errorf("get favorite films scan err: %w", err)
 		}

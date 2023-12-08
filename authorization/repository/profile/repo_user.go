@@ -22,6 +22,7 @@ type IUserRepo interface {
 	GetUserProfile(login string) (*models.UserItem, error)
 	EditProfile(prevLogin string, login string, password string, email string, birthDate string, photo string) error
 	GetIdsAndPaths() ([]int32, []string, error)
+	CheckUserPassword(login string, password string) (bool, error) 
 }
 
 type RepoPostgre struct {
@@ -58,6 +59,22 @@ func (repo *RepoPostgre) pingDb(timer uint32, lg *slog.Logger) {
 
 		time.Sleep(time.Duration(timer) * time.Second)
 	}
+}
+
+func (repo *RepoPostgre) CheckUserPassword(login string, password string) (bool, error) {
+	post := &models.UserItem{}
+
+	err := repo.db.QueryRow(
+		"SELECT login FROM profile "+
+			"WHERE login = $1 AND password = $2", login, password).Scan(&post.Login)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		return false, fmt.Errorf("CheckUserPassword err: %w", err)
+	}
+
+	return true, nil
 }
 
 func (repo *RepoPostgre) GetUser(login string, password string) (*models.UserItem, bool, error) {

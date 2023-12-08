@@ -34,7 +34,7 @@ func GetApi(c *usecase.Core, l *slog.Logger, cfg *configs.DbDsnCfg) *API {
 	mx.HandleFunc("/api/v1/favorite/films", api.FavoriteFilms)
 	mx.HandleFunc("/api/v1/favorite/film/add", api.FavoriteFilmsAdd)
 	mx.HandleFunc("/api/v1/favorite/film/remove", api.FavoriteFilmsRemove)
-	mx.HandleFunc("/api/v1/search/film", api.FindFilm)
+	mx.HandleFunc("/api/v1/find", api.FindFilm)
 	mx.HandleFunc("/api/v1/search/actor", api.FindActor)
 	mx.HandleFunc("/api/v1/calendar", api.Calendar)
 

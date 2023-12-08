@@ -44,6 +44,30 @@ type DbRedisCfg struct {
 	Timer    int    `yaml:"timer"`
 }
 
+type GrpcConfig struct {
+	Port           string `yaml:"port"`
+	ConnectionType string `yaml:"connection_type"`
+}
+
+func ReadGrpcConfig() (*GrpcConfig, error) {
+	flag.Parse()
+	var path string
+	flag.StringVar(&path, "config_path_auth", "../../configs/auth_server_cfg.yaml", "Путь к конфигу")
+
+	grpcConfig := GrpcConfig{}
+	grpcFile, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	err = yaml.Unmarshal(grpcFile, &grpcConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	return &grpcConfig, nil
+}
+
 func ReadCsrfRedisConfig() (*DbRedisCfg, error) {
 	flag.Parse()
 	var path string
