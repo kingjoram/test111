@@ -2,6 +2,8 @@ package delivery
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -26,11 +28,14 @@ type API struct {
 	mx   *http.ServeMux
 }
 
-func (a *API) ListenAndServe() {
+func (a *API) ListenAndServe() error {
 	err := http.ListenAndServe(":8081", a.mx)
 	if err != nil {
 		a.lg.Error("ListenAndServe error", "err", err.Error())
+		return fmt.Errorf("listen and serve error: %w", err)
 	}
+
+	return nil
 }
 
 func GetApi(c *usecase.Core, l *slog.Logger) *API {
@@ -320,15 +325,21 @@ func (a *API) Profile(w http.ResponseWriter, r *http.Request) {
 	birthDate := r.FormValue("birthday")
 	password := r.FormValue("password")
 	photo, handler, err := r.FormFile("photo")
+	if err != nil && !errors.Is(err, http.ErrMissingFile) {
+		a.lg.Error("Post profile error", "err", err.Error())
+		response.Status = http.StatusInternalServerError
+		requests.SendResponse(w, response, a.lg)
+		return
+	}
 
-    isRepeatPassword, err := a.core.CheckPassword(login, password)
+	isRepeatPassword, err := a.core.CheckPassword(login, password)
 
 	if isRepeatPassword {
 		response.Status = http.StatusConflict
 		requests.SendResponse(w, response, a.lg)
 		return
 	}
-	
+
 	var filename string
 	if handler == nil {
 		filename = ""

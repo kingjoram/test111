@@ -2,6 +2,7 @@ package delivery_auth_grpc
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net"
 
@@ -13,11 +14,52 @@ import (
 	pb "github.com/go-park-mail-ru/2023_2_Vkladyshi/authorization/proto"
 )
 
+type authGrpc struct {
+	grpcServ *grpc.Server
+	lg       *slog.Logger
+}
+
 type server struct {
 	pb.UnimplementedAuthorizationServer
 	userRepo    *profile.RepoPostgre
 	sessionRepo *session.SessionRepo
 	lg          *slog.Logger
+}
+
+func NewServer(l *slog.Logger) (*authGrpc, error) {
+	config, err := configs.ReadConfig()
+	if err != nil {
+		l.Error("read config error", "err", err.Error())
+		return nil, fmt.Errorf("listen and serve grpc error: %w", err)
+	}
+
+	configSession, err := configs.ReadSessionRedisConfig()
+	if err != nil {
+		l.Error("read config error", "err", err.Error())
+		return nil, fmt.Errorf("listen and serve grpc error: %w", err)
+	}
+
+	session, err := session.GetSessionRepo(*configSession, l)
+
+	if err != nil {
+		l.Error("Session repository is not responding")
+		return nil, fmt.Errorf("listen and serve grpc error: %w", err)
+	}
+
+	users, err := profile.GetUserRepo(config, l)
+	if err != nil {
+		l.Error("cant create repo")
+		return nil, fmt.Errorf("listen and serve grpc error: %w", err)
+	}
+
+	s := grpc.NewServer()
+	pb.RegisterAuthorizationServer(s, &server{
+		lg:          l,
+		sessionRepo: session,
+		userRepo:    users,
+	})
+
+	return &authGrpc{grpcServ: s, lg: l}, nil
 }
 
 func (s *server) GetId(ctx context.Context, req *pb.FindIdRequest) (*pb.FindIdResponse, error) {
@@ -31,17 +73,17 @@ func (s *server) GetId(ctx context.Context, req *pb.FindIdRequest) (*pb.FindIdRe
 		return nil, err
 	}
 	return &pb.FindIdResponse{
-		Value: id,
+		Value: uint64(id),
 	}, nil
 }
 
-func (s *server) GetIdsAndPaths(ctx context.Context, req *pb.IdsAndPathsListRequest) (*pb.IdsAndPathsResponse, error) {
-	ids, paths, err := s.userRepo.GetIdsAndPaths()
+func (s *server) GetIdsAndPaths(ctx context.Context, req *pb.NamesAndPathsListRequest) (*pb.NamesAndPathsResponse, error) {
+	names, paths, err := s.userRepo.GetNamesAndPaths(req.Ids)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.IdsAndPathsResponse{
-		Ids:   ids,
+	return &pb.NamesAndPathsResponse{
+		Names: names,
 		Paths: paths,
 	}, nil
 }
@@ -56,53 +98,23 @@ func (s *server) GetAuthorizationStatus(ctx context.Context, req *pb.Authorizati
 	}, nil
 }
 
-func ListenAndServeGrpc(l *slog.Logger) {
-	config, err := configs.ReadConfig()
-	if err != nil {
-			l.Error("read config error", "err", err.Error())
-			return
-	}
-
-	configSession, err := configs.ReadSessionRedisConfig()
-	if err != nil {
-			l.Error("read config error", "err", err.Error())
-			return
-	}
-
-	session, err := session.GetSessionRepo(*configSession, l)
-
-	if err != nil {
-			l.Error("Session repository is not responding")
-			return
-	}
-
-	users, err := profile.GetUserRepo(config, l)
-	if err != nil {
-			l.Error("cant create repo")
-			return
-	}
-
+func (s *authGrpc) ListenAndServeGrpc() error {
 	grpcConfig, err := configs.ReadGrpcConfig()
 	if err != nil {
-		l.Error("failed to parse grpc config file: %v", err)
-		return
+		s.lg.Error("failed to parse grpc config file: %v", err)
+		return fmt.Errorf("listen and serve grpc error: %w", err)
 	}
 
 	lis, err := net.Listen(grpcConfig.ConnectionType, ":"+grpcConfig.Port)
 	if err != nil {
-		l.Error("failed to listen: %v", err)
-		return
+		s.lg.Error("failed to listen: %v", err)
+		return fmt.Errorf("listen and serve grpc error: %w", err)
 	}
 
-	s := grpc.NewServer()
-	pb.RegisterAuthorizationServer(s, &server{
-		lg: l,
-        sessionRepo: session,
-        userRepo: users,
-	})
-
-	if err := s.Serve(lis); err != nil {
-		l.Error("failed to serve: %v", err)
-		return
+	if err := s.grpcServ.Serve(lis); err != nil {
+		s.lg.Error("failed to serve: %v", err)
+		return fmt.Errorf("listen and serve grpc error: %w", err)
 	}
+
+	return nil
 }

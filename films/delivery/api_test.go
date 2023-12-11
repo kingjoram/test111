@@ -72,6 +72,7 @@ func TestFilms(t *testing.T) {
 	testCases := map[string]struct {
 		method string
 		result *requests.Response
+		params map[string]string
 	}{
 		"Bad method": {
 			method: http.MethodPost,
@@ -84,6 +85,7 @@ func TestFilms(t *testing.T) {
 		"Ok": {
 			method: http.MethodGet,
 			result: getExpectedResult(&requests.Response{Status: http.StatusOK, Body: expectedResponse}),
+			params: map[string]string{"collection_id": "1"},
 		},
 	}
 
@@ -92,7 +94,7 @@ func TestFilms(t *testing.T) {
 
 	mockCore := mocks.NewMockICore(mockCtrl)
 	mockCore.EXPECT().GetFilmsAndGenreTitle(uint64(0), uint64(0), uint64(8)).Return(nil, "", fmt.Errorf("core_err")).Times(1)
-	mockCore.EXPECT().GetFilmsAndGenreTitle(uint64(0), uint64(0), uint64(8)).Return(expectedFilms, expectedGenre, nil).Times(1)
+	mockCore.EXPECT().GetFilmsAndGenreTitle(uint64(1), uint64(0), uint64(8)).Return(expectedFilms, expectedGenre, nil).Times(1)
 	var buff bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buff, nil))
 
@@ -100,6 +102,11 @@ func TestFilms(t *testing.T) {
 
 	for _, curr := range testCases {
 		r := httptest.NewRequest(curr.method, "/api/v1/films", nil)
+		q := r.URL.Query()
+		for key, value := range curr.params {
+			q.Add(key, value)
+		}
+		r.URL.RawQuery = q.Encode()
 		w := httptest.NewRecorder()
 
 		api.Films(w, r)
@@ -231,12 +238,12 @@ func TestActor(t *testing.T) {
 		},
 		"not found error": {
 			method: http.MethodGet,
-			params: map[string]string{"actor_id": "1"},
+			params: map[string]string{"actor_id": "2"},
 			result: &requests.Response{Status: http.StatusNotFound, Body: nil},
 		},
 		"Ok": {
 			method: http.MethodGet,
-			params: map[string]string{"actor_id": "1"},
+			params: map[string]string{"actor_id": "3"},
 			result: getExpectedResult(&requests.Response{Status: http.StatusOK, Body: expectedResponse}),
 		},
 	}
@@ -246,8 +253,8 @@ func TestActor(t *testing.T) {
 
 	mockCore := mocks.NewMockICore(mockCtrl)
 	mockCore.EXPECT().GetActorInfo(uint64(1)).Return(nil, fmt.Errorf("core_err")).Times(1)
-	mockCore.EXPECT().GetActorInfo(uint64(1)).Return(nil, usecase.ErrNotFound).Times(1)
-	mockCore.EXPECT().GetActorInfo(uint64(1)).Return(&expectedResponse, nil).Times(1)
+	mockCore.EXPECT().GetActorInfo(uint64(2)).Return(nil, usecase.ErrNotFound).Times(1)
+	mockCore.EXPECT().GetActorInfo(uint64(3)).Return(&expectedResponse, nil).Times(1)
 	var buff bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buff, nil))
 

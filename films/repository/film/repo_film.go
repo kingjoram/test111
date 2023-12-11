@@ -30,6 +30,8 @@ type IFilmsRepo interface {
 	AddFavoriteFilm(userId uint64, filmId uint64) error
 	RemoveFavoriteFilm(userId uint64, filmId uint64) error
 	CheckFilm(userId uint64, filmId uint64) (bool, error)
+	AddRating(filmId uint64, userId uint64, rating uint16) error
+	HasUsersRating(userId uint64, filmId uint64) (bool, error)
 }
 
 type RepoPostgre struct {
@@ -311,6 +313,33 @@ func (repo *RepoPostgre) CheckFilm(userId uint64, filmId uint64) (bool, error) {
 		}
 
 		return false, fmt.Errorf("GetFilm err: %w", err)
+	}
+
+	return true, nil
+}
+
+func (repo *RepoPostgre) AddRating(filmId uint64, userId uint64, rating uint16) error {
+	_, err := repo.db.Exec(
+		"INSERT INTO users_comment(id_film, rating, id_user) "+
+			"VALUES($1, $2, $3, $4)", filmId, rating, userId)
+	if err != nil {
+		return fmt.Errorf("AddComment: %w", err)
+	}
+
+	return nil
+}
+
+func (repo *RepoPostgre) HasUsersRating(userId uint64, filmId uint64) (bool, error) {
+	var id uint64
+	err := repo.db.QueryRow(
+		"SELECT id_user FROM users_comment "+
+			"WHERE id_user = $1 AND id_film = $2", userId, filmId).Scan(&id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+
+		return false, err
 	}
 
 	return true, nil

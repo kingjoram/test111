@@ -61,8 +61,7 @@ func (repo *RepoPostgre) GetFilmComments(filmId uint64, first uint64, limit uint
 	comments := []models.CommentItem{}
 
 	rows, err := repo.db.Query(
-		"SELECT profile.login, rating, comment, profile.photo FROM users_comment "+
-			"JOIN profile ON users_comment.id_user = profile.id "+
+		"SELECT id_user, rating, comment FROM users_comment "+
 			"WHERE id_film = $1 "+
 			"OFFSET $2 LIMIT $3", filmId, first, limit)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -72,7 +71,7 @@ func (repo *RepoPostgre) GetFilmComments(filmId uint64, first uint64, limit uint
 
 	for rows.Next() {
 		post := models.CommentItem{}
-		err := rows.Scan(&post.Username, &post.Rating, &post.Comment, &post.Photo)
+		err := rows.Scan(&post.IdUser, &post.Rating, &post.Comment)
 		if err != nil {
 			return nil, fmt.Errorf("GetFilmRating scan err: %w", err)
 		}

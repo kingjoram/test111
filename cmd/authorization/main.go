@@ -38,8 +38,24 @@ func main() {
 		lg.Error("cant create core")
 		return
 	}
-	go delivery_auth_grpc.ListenAndServeGrpc(lg)
 	api := delivery_auth.GetApi(core, lg)
-	api.ListenAndServe()
-	select {}
+
+	errs := make(chan error, 2)
+
+	grpcServ, err := delivery_auth_grpc.NewServer(lg)
+	if err != nil {
+		lg.Error("cant create server")
+		return
+	}
+	go func() {
+		errs <- api.ListenAndServe()
+	}()
+	go func() {
+		errs <- grpcServ.ListenAndServeGrpc()
+	}()
+
+	err = <-errs
+	if err != nil {
+		lg.Error("listen and serve error", "err", err.Error())
+	}
 }

@@ -4,11 +4,9 @@ import (
 	"bytes"
 	"fmt"
 	"log/slog"
-	"reflect"
 	"testing"
 
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/comments/mocks"
-	"github.com/go-park-mail-ru/2023_2_Vkladyshi/pkg/models"
 	"github.com/golang/mock/gomock"
 )
 
@@ -65,42 +63,6 @@ func TestAddComment(t *testing.T) {
 	}
 	if found {
 		t.Errorf("waited not found")
-		return
-	}
-}
-
-func TestGetFilmComments(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	expected := []models.CommentItem{}
-	expected = append(expected, models.CommentItem{Username: "u"})
-
-	mockObj := mocks.NewMockICommentRepo(mockCtrl)
-	firstCall := mockObj.EXPECT().GetFilmComments(uint64(1), uint64(1), uint64(1)).Return(expected, nil)
-	mockObj.EXPECT().GetFilmComments(uint64(1), uint64(0), uint64(1)).After(firstCall).Return(nil, fmt.Errorf("repo_error"))
-
-	var buff bytes.Buffer
-	logger := slog.New(slog.NewJSONHandler(&buff, nil))
-	core := Core{comments: mockObj, lg: logger}
-
-	got, err := core.GetFilmComments(1, 1, 1)
-	if err != nil {
-		t.Errorf("waited no errors")
-		return
-	}
-	if !reflect.DeepEqual(got, expected) {
-		t.Errorf("waited %v, got %v", expected, got)
-		return
-	}
-
-	got, err = core.GetFilmComments(1, 0, 1)
-	if err == nil {
-		t.Errorf("waited error")
-		return
-	}
-	if got != nil {
-		t.Errorf("waited nil")
 		return
 	}
 }

@@ -8,3 +8,4 @@ max_open_conns: 10
 timer: 1
 comment_db: "postgres"
 server_adress: ":8083"
+grpc_port: ":50051"

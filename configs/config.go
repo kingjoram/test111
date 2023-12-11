@@ -22,6 +22,7 @@ type DbDsnCfg struct {
 	Profession_db string `yaml:"profession_db"`
 	Calendar_db   string `yaml:"calendar_db"`
 	ServerAdress  string `yaml:"server_adress"`
+	GrpcPort      string `yaml:"grpc_port"`
 }
 
 type CommentCfg struct {
@@ -35,6 +36,7 @@ type CommentCfg struct {
 	Timer        uint32 `yaml:"timer"`
 	Comments_db  string `yaml:"comment_db"`
 	ServerAdress string `yaml:"server_adress"`
+	GrpcPort     string `yaml:"grpc_port"`
 }
 
 type DbRedisCfg struct {

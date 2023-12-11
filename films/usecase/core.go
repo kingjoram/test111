@@ -14,10 +14,9 @@ import (
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/films/repository/film"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/films/repository/genre"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/films/repository/profession"
+	"github.com/go-park-mail-ru/2023_2_Vkladyshi/pkg/middleware"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/pkg/models"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/pkg/requests"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 var (
@@ -42,6 +41,7 @@ type ICore interface {
 	GetCalendar() (*requests.CalendarResponse, error)
 	GetUserId(ctx context.Context, sid string) (uint64, error)
 	FindActor(name string, birthDate string, films []string, career []string, country string) ([]models.Character, error)
+	AddRating(filmId uint64, userId uint64, rating uint16) (bool, error)
 }
 
 type Core struct {
@@ -51,11 +51,18 @@ type Core struct {
 	crew       crew.ICrewRepo
 	profession profession.IProfessionRepo
 	calendar   calendar.ICalendarRepo
+	client     auth.AuthorizationClient
 }
 
 func GetCore(cfg_sql *configs.DbDsnCfg, lg *slog.Logger,
 	films film.IFilmsRepo, genres genre.IGenreRepo, actors crew.ICrewRepo, professions profession.IProfessionRepo, calendar calendar.ICalendarRepo,
 ) *Core {
+	client, err := middleware.GetClient(cfg_sql.GrpcPort)
+	if err != nil {
+		lg.Error("get client error", "err", err.Error())
+		return nil
+	}
+
 	core := Core{
 		lg:         lg.With("module", "core"),
 		films:      films,
@@ -63,6 +70,7 @@ func GetCore(cfg_sql *configs.DbDsnCfg, lg *slog.Logger,
 		crew:       actors,
 		profession: professions,
 		calendar:   calendar,
+		client:     client,
 	}
 	return &core
 }
@@ -264,21 +272,14 @@ func (core *Core) GetCalendar() (*requests.CalendarResponse, error) {
 }
 
 func (core *Core) GetUserId(ctx context.Context, sid string) (uint64, error) {
-	conn, err := grpc.Dial(":50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		core.lg.Error("grpc connect error", "err", err.Error())
-		return 0, fmt.Errorf("grpc connect err: %w", err)
-	}
-	client := auth.NewAuthorizationClient(conn)
-
 	request := auth.FindIdRequest{Sid: sid}
 
-	response, err := client.GetId(ctx, &request)
+	response, err := core.client.GetId(ctx, &request)
 	if err != nil {
 		core.lg.Error("get user id error", "err", err.Error())
 		return 0, fmt.Errorf("get user id err: %w", err)
 	}
-	return uint64(response.Value), nil
+	return response.Value, nil
 }
 
 func (core *Core) FindActor(name string, birthDate string, films []string, career []string, country string) ([]models.Character, error) {
@@ -292,4 +293,23 @@ func (core *Core) FindActor(name string, birthDate string, films []string, caree
 	}
 
 	return actors, nil
+}
+
+func (core *Core) AddRating(filmId uint64, userId uint64, rating uint16) (bool, error) {
+	found, err := core.films.HasUsersRating(userId, filmId)
+	if err != nil {
+		core.lg.Error("find users rating error", "err", err.Error())
+		return false, fmt.Errorf("find users rating error: %w", err)
+	}
+	if found {
+		return found, nil
+	}
+
+	err = core.films.AddRating(filmId, userId, rating)
+	if err != nil {
+		core.lg.Error("add rating error", "err", err.Error())
+		return false, fmt.Errorf("add rating err: %w", err)
+	}
+
+	return false, nil
 }

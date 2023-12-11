@@ -37,6 +37,7 @@ func GetApi(c *usecase.Core, l *slog.Logger, cfg *configs.DbDsnCfg) *API {
 	mx.HandleFunc("/api/v1/find", api.FindFilm)
 	mx.HandleFunc("/api/v1/search/actor", api.FindActor)
 	mx.HandleFunc("/api/v1/calendar", api.Calendar)
+	mx.HandleFunc("/api/v1/rating/add", api.AddRating)
 
 	api.mx = mx
 
@@ -410,5 +411,63 @@ func (a *API) FindActor(w http.ResponseWriter, r *http.Request) {
 		Actors: actors,
 	}
 	response.Body = actorsResponse
+	requests.SendResponse(w, response, a.lg)
+}
+
+func (a *API) AddRating(w http.ResponseWriter, r *http.Request) {
+	response := requests.Response{Status: http.StatusOK, Body: nil}
+	if r.Method != http.MethodPost {
+		response.Status = http.StatusMethodNotAllowed
+		requests.SendResponse(w, response, a.lg)
+		return
+	}
+
+	session, err := r.Cookie("session_id")
+	if err == http.ErrNoCookie {
+		response.Status = http.StatusUnauthorized
+		requests.SendResponse(w, response, a.lg)
+		return
+	}
+	if err != nil {
+		a.lg.Error("add rating error", "err", err.Error())
+		response.Status = http.StatusInternalServerError
+		requests.SendResponse(w, response, a.lg)
+		return
+	}
+
+	userId, err := a.core.GetUserId(r.Context(), session.Value)
+	if err != nil {
+		a.lg.Error("add rating error", "err", err.Error())
+		response.Status = http.StatusInternalServerError
+		requests.SendResponse(w, response, a.lg)
+		return
+	}
+
+	var commentRequest requests.CommentRequest
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		response.Status = http.StatusBadRequest
+		requests.SendResponse(w, response, a.lg)
+		return
+	}
+
+	if err = json.Unmarshal(body, &commentRequest); err != nil {
+		response.Status = http.StatusBadRequest
+		requests.SendResponse(w, response, a.lg)
+		return
+	}
+
+	found, err := a.core.AddRating(commentRequest.FilmId, userId, commentRequest.Rating)
+	if err != nil {
+		a.lg.Error("add rating error", "err", err.Error())
+		response.Status = http.StatusInternalServerError
+	}
+	if found {
+		response.Status = http.StatusNotAcceptable
+		requests.SendResponse(w, response, a.lg)
+		return
+	}
+
 	requests.SendResponse(w, response, a.lg)
 }

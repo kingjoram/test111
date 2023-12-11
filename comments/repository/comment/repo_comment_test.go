@@ -18,18 +18,18 @@ func TestGetFilmComments(t *testing.T) {
 	}
 	defer db.Close()
 
-	rows := sqlmock.NewRows([]string{"Login", "Rating", "Comment", "Photo"})
+	rows := sqlmock.NewRows([]string{"Id", "Rating", "Comment"})
 
 	expect := []models.CommentItem{
-		{Username: "l1", Rating: 4, Comment: "c1", Photo: "p1"},
+		{IdUser: 1, Rating: 4, Comment: "c1"},
 	}
 
 	for _, item := range expect {
-		rows = rows.AddRow(item.Username, item.Rating, item.Comment, item.Photo)
+		rows = rows.AddRow(item.IdUser, item.Rating, item.Comment)
 	}
 
 	mock.ExpectQuery(
-		regexp.QuoteMeta("SELECT profile.login, rating, comment, profile.photo FROM users_comment JOIN profile ON users_comment.id_user = profile.id WHERE id_film = $1 OFFSET $2 LIMIT $3")).
+		regexp.QuoteMeta("SELECT id_user, rating, comment FROM users_comment WHERE id_film = $1 OFFSET $2 LIMIT $3")).
 		WithArgs(1, 0, 5).
 		WillReturnRows(rows)
 
@@ -53,7 +53,7 @@ func TestGetFilmComments(t *testing.T) {
 	}
 
 	mock.ExpectQuery(
-		regexp.QuoteMeta("SELECT profile.login, rating, comment, profile.photo FROM users_comment JOIN profile ON users_comment.id_user = profile.id WHERE id_film = $1 OFFSET $2 LIMIT $3")).
+		regexp.QuoteMeta("SELECT id_user, rating, comment FROM users_comment WHERE id_film = $1 OFFSET $2 LIMIT $3")).
 		WithArgs(1, 0, 5).
 		WillReturnError(fmt.Errorf("db_error"))
 

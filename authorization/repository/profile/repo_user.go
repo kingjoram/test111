@@ -12,6 +12,7 @@ import (
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/configs"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/pkg/models"
 	_ "github.com/jackc/pgx/stdlib"
+	"github.com/lib/pq"
 )
 
 type IUserRepo interface {
@@ -21,8 +22,8 @@ type IUserRepo interface {
 	CreateUser(login string, password string, name string, birthDate string, email string) error
 	GetUserProfile(login string) (*models.UserItem, error)
 	EditProfile(prevLogin string, login string, password string, email string, birthDate string, photo string) error
-	GetIdsAndPaths() ([]int32, []string, error)
-	CheckUserPassword(login string, password string) (bool, error) 
+	GetNamesAndPaths(ids []uint64) ([]string, []string, error)
+	CheckUserPassword(login string, password string) (bool, error)
 }
 
 type RepoPostgre struct {
@@ -136,31 +137,30 @@ func (repo *RepoPostgre) CreateUser(login string, password string, name string, 
 	return nil
 }
 
-func (repo *RepoPostgre) GetIdsAndPaths() ([]int32, []string, error) {
-	rows, err := repo.db.Query("SELECT id, photo FROM profile")
+func (repo *RepoPostgre) GetNamesAndPaths(ids []uint64) ([]string, []string, error) {
+	var s strings.Builder
+	s.WriteString("SELECT name, photo FROM profile WHERE id = ANY ($1::INTEGER[])")
+
+	rows, err := repo.db.Query(s.String(), pq.Array(ids))
 	if err != nil {
-		return nil, nil, fmt.Errorf("GetIdsAndPaths query error: %w", err)
+		return nil, nil, fmt.Errorf("GetMatchingNamesAndPaths query error: %w", err)
 	}
 	defer rows.Close()
 
-	var ids []int32
+	var names []string
 	var paths []string
 
 	for rows.Next() {
-		var id int32
+		var name string
 		var path string
-		if err := rows.Scan(&id, &path); err != nil {
-			return nil, nil, fmt.Errorf("GetIdsAndPaths scan error: %w", err)
+		if err := rows.Scan(&name, &path); err != nil {
+			return nil, nil, fmt.Errorf("GetMatchingNamesAndPaths scan error: %w", err)
 		}
-		ids = append(ids, id)
+		names = append(names, name)
 		paths = append(paths, path)
 	}
 
-	if err := rows.Err(); err != nil {
-		return nil, nil, fmt.Errorf("GetIdsAndPaths rows error: %w", err)
-	}
-
-	return ids, paths, nil
+	return names, paths, nil
 }
 
 func (repo *RepoPostgre) GetUserProfile(login string) (*models.UserItem, error) {
