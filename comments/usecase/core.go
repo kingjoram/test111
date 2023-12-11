@@ -46,9 +46,9 @@ func (core *Core) GetFilmComments(filmId uint64, first uint64, limit uint64) ([]
 		core.lg.Error("Get Film Comments error", "err", err.Error())
 		return nil, fmt.Errorf("GetFilmComments err: %w", err)
 	}
-	ids := make([]uint64, len(comments))
+	ids := make([]int32, len(comments))
 	for i := 0; i < len(ids); i++ {
-		ids[i] = comments[i].IdUser
+		ids[i] = int32(comments[i].IdUser)
 	}
 
 	namesAndPhotos, err := core.client.GetIdsAndPaths(context.Background(), &auth.NamesAndPathsListRequest{Ids: ids})
@@ -90,5 +90,5 @@ func (core *Core) GetUserId(ctx context.Context, sid string) (uint64, error) {
 		core.lg.Error("get user id error", "err", err.Error())
 		return 0, fmt.Errorf("get user id err: %w", err)
 	}
-	return response.Value, nil
+	return uint64(response.Value), nil
 }

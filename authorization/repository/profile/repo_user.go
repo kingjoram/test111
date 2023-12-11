@@ -22,7 +22,7 @@ type IUserRepo interface {
 	CreateUser(login string, password string, name string, birthDate string, email string) error
 	GetUserProfile(login string) (*models.UserItem, error)
 	EditProfile(prevLogin string, login string, password string, email string, birthDate string, photo string) error
-	GetNamesAndPaths(ids []uint64) ([]string, []string, error)
+	GetNamesAndPaths(ids []int32) ([]string, []string, error)
 	CheckUserPassword(login string, password string) (bool, error)
 }
 
@@ -137,7 +137,7 @@ func (repo *RepoPostgre) CreateUser(login string, password string, name string, 
 	return nil
 }
 
-func (repo *RepoPostgre) GetNamesAndPaths(ids []uint64) ([]string, []string, error) {
+func (repo *RepoPostgre) GetNamesAndPaths(ids []int32) ([]string, []string, error) {
 	var s strings.Builder
 	s.WriteString("SELECT name, photo FROM profile WHERE id = ANY ($1::INTEGER[])")
 

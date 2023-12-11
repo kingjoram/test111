@@ -60,7 +60,7 @@ func (m *FindIdRequest) GetSid() string {
 }
 
 type FindIdResponse struct {
-	Value                uint64    `protobuf:"varint,1,opt,name=value,proto3" json:"value,omitempty"`
+	Value                int64    `protobuf:"varint,1,opt,name=value,proto3" json:"value,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -91,7 +91,7 @@ func (m *FindIdResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_FindIdResponse proto.InternalMessageInfo
 
-func (m *FindIdResponse) GetValue() uint64 {
+func (m *FindIdResponse) GetValue() int64 {
 	if m != nil {
 		return m.Value
 	}
@@ -99,7 +99,7 @@ func (m *FindIdResponse) GetValue() uint64 {
 }
 
 type NamesAndPathsListRequest struct {
-	Ids                  []uint64  `protobuf:"varint,1,rep,packed,name=ids,proto3" json:"ids,omitempty"`
+	Ids                  []int32  `protobuf:"varint,1,rep,packed,name=ids,proto3" json:"ids,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -130,7 +130,7 @@ func (m *NamesAndPathsListRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_NamesAndPathsListRequest proto.InternalMessageInfo
 
-func (m *NamesAndPathsListRequest) GetIds() []uint64 {
+func (m *NamesAndPathsListRequest) GetIds() []int32 {
 	if m != nil {
 		return m.Ids
 	}

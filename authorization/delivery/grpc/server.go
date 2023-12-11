@@ -73,7 +73,7 @@ func (s *server) GetId(ctx context.Context, req *pb.FindIdRequest) (*pb.FindIdRe
 		return nil, err
 	}
 	return &pb.FindIdResponse{
-		Value: uint64(id),
+		Value: id,
 	}, nil
 }
 
