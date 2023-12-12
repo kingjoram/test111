@@ -24,6 +24,7 @@ type IUserRepo interface {
 	EditProfile(prevLogin string, login string, password string, email string, birthDate string, photo string) error
 	GetNamesAndPaths(ids []int32) ([]string, []string, error)
 	CheckUserPassword(login string, password string) (bool, error)
+	GetUserRole(login string) (string, error)
 }
 
 type RepoPostgre struct {
@@ -95,7 +96,7 @@ func (repo *RepoPostgre) GetUser(login string, password string) (*models.UserIte
 }
 
 func (repo *RepoPostgre) FindUser(login string) (bool, error) {
-	post := &UserItem{}
+	post := &models.UserItem{}
 
 	err := repo.db.QueryRow(
 		"SELECT login FROM profile "+
@@ -228,4 +229,15 @@ func (repo *RepoPostgre) EditProfile(prevLogin string, login string, password st
 	}
 
 	return nil
+}
+
+func (repo *RepoPostgre) GetUserRole(login string) (string, error) {
+	var role string
+
+	err := repo.db.QueryRow("SELECT role FROM profile WHERE login = $1", role).Scan(&role)
+	if err != nil {
+		return "", fmt.Errorf("get user role err: %w", err)
+	}
+
+	return role, nil
 }

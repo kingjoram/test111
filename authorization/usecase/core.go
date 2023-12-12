@@ -30,6 +30,7 @@ type ICore interface {
 	CheckCsrfToken(ctx context.Context, token string) (bool, error)
 	CreateCsrfToken(ctx context.Context) (string, error)
 	CheckPassword(login string, password string) (bool, error)
+	GetUserRole(login string) (string, error)
 }
 
 type Core struct {
@@ -80,7 +81,7 @@ func (core *Core) CheckPassword(login string, password string) (bool, error) {
 		core.lg.Error("find user error", "err", err.Error())
 		return false, fmt.Errorf("FindUserAccount err: %w", err)
 	}
-	return  found, nil
+	return found, nil
 }
 
 func (core *Core) EditProfile(prevLogin string, login string, password string, email string, birthDate string, photo string) error {
@@ -238,4 +239,14 @@ func (core *Core) CreateCsrfToken(ctx context.Context) (string, error) {
 	}
 
 	return sid, nil
+}
+
+func (core *Core) GetUserRole(login string) (string, error) {
+	role, err := core.users.GetUserRole(login)
+	if err != nil {
+		core.lg.Error("get user role error", "err", err.Error())
+		return "", fmt.Errorf("get user role err: %w", err)
+	}
+
+	return role, nil
 }

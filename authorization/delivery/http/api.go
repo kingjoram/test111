@@ -106,7 +106,15 @@ func (a *API) AuthAccept(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	authCheckResponse := requests.AuthCheckResponse{Login: login}
+	role, err := a.core.GetUserRole(login)
+	if err != nil {
+		a.lg.Error("auth accept error", "err", err.Error())
+		response.Status = http.StatusInternalServerError
+		requests.SendResponse(w, response, a.lg)
+		return
+	}
+
+	authCheckResponse := requests.AuthCheckResponse{Login: login, Role: role}
 	response.Body = authCheckResponse
 
 	requests.SendResponse(w, response, a.lg)
