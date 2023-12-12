@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/configs"
@@ -18,6 +20,7 @@ import (
 type IGenreRepo interface {
 	GetFilmGenres(filmId uint64) ([]models.GenreItem, error)
 	GetGenreById(genreId uint64) (string, error)
+	AddFilm(genres []uint64, filmId uint64) error
 }
 
 type RepoPostgre struct {
@@ -94,4 +97,25 @@ func (repo *RepoPostgre) GetGenreById(genreId uint64) (string, error) {
 	}
 
 	return genre, nil
+}
+
+func (repo *RepoPostgre) AddFilm(genres []uint64, filmId uint64) error {
+	var s strings.Builder
+	var params []interface{}
+	params = append(params, filmId)
+
+	s.WriteString("INSERT INTO films_genre(id_film, id_genre) VALUES")
+	for i, genre := range genres {
+		if i != 0 {
+			s.WriteString(",")
+		}
+		s.WriteString("($1, $" + strconv.Itoa(i+2) + ")")
+		params = append(params, genre)
+	}
+
+	_, err := repo.db.Exec(s.String(), params...)
+	if err != nil {
+		return fmt.Errorf("add films genres error: %w", err)
+	}
+	return nil
 }

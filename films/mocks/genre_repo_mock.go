@@ -34,6 +34,20 @@ func (m *MockIGenreRepo) EXPECT() *MockIGenreRepoMockRecorder {
 	return m.recorder
 }
 
+// AddFilm mocks base method.
+func (m *MockIGenreRepo) AddFilm(genres []uint64, filmId uint64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddFilm", genres, filmId)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddFilm indicates an expected call of AddFilm.
+func (mr *MockIGenreRepoMockRecorder) AddFilm(genres, filmId interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddFilm", reflect.TypeOf((*MockIGenreRepo)(nil).AddFilm), genres, filmId)
+}
+
 // GetFilmGenres mocks base method.
 func (m *MockIGenreRepo) GetFilmGenres(filmId uint64) ([]models.GenreItem, error) {
 	m.ctrl.T.Helper()

@@ -36,6 +36,20 @@ func (m *MockICore) EXPECT() *MockICoreMockRecorder {
 	return m.recorder
 }
 
+// AddFilm mocks base method.
+func (m *MockICore) AddFilm(film models.FilmItem, genres, actors []uint64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddFilm", film, genres, actors)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddFilm indicates an expected call of AddFilm.
+func (mr *MockICoreMockRecorder) AddFilm(film, genres, actors interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddFilm", reflect.TypeOf((*MockICore)(nil).AddFilm), film, genres, actors)
+}
+
 // AddRating mocks base method.
 func (m *MockICore) AddRating(filmId, userId uint64, rating uint16) (bool, error) {
 	m.ctrl.T.Helper()
@@ -49,6 +63,49 @@ func (m *MockICore) AddRating(filmId, userId uint64, rating uint16) (bool, error
 func (mr *MockICoreMockRecorder) AddRating(filmId, userId, rating interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddRating", reflect.TypeOf((*MockICore)(nil).AddRating), filmId, userId, rating)
+}
+
+// FavoriteActors mocks base method.
+func (m *MockICore) FavoriteActors(userId, start, end uint64) ([]models.Character, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FavoriteActors", userId, start, end)
+	ret0, _ := ret[0].([]models.Character)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FavoriteActors indicates an expected call of FavoriteActors.
+func (mr *MockICoreMockRecorder) FavoriteActors(userId, start, end interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FavoriteActors", reflect.TypeOf((*MockICore)(nil).FavoriteActors), userId, start, end)
+}
+
+// FavoriteActorsAdd mocks base method.
+func (m *MockICore) FavoriteActorsAdd(userId, filmId uint64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FavoriteActorsAdd", userId, filmId)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// FavoriteActorsAdd indicates an expected call of FavoriteActorsAdd.
+func (mr *MockICoreMockRecorder) FavoriteActorsAdd(userId, filmId interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FavoriteActorsAdd", reflect.TypeOf((*MockICore)(nil).FavoriteActorsAdd), userId, filmId)
+}
+
+// FavoriteActorsRemove mocks base method.
+func (m *MockICore) FavoriteActorsRemove(userId, filmId uint64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FavoriteActorsRemove", userId, filmId)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// FavoriteActorsRemove indicates an expected call of FavoriteActorsRemove.
+func (mr *MockICoreMockRecorder) FavoriteActorsRemove(userId, filmId interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FavoriteActorsRemove", reflect.TypeOf((*MockICore)(nil).FavoriteActorsRemove), userId, filmId)
 }
 
 // FavoriteFilms mocks base method.

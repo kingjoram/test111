@@ -24,6 +24,11 @@ type ICrewRepo interface {
 	GetFilmCharacters(filmId uint64) ([]models.Character, error)
 	GetActor(actorId uint64) (*models.CrewItem, error)
 	FindActor(name string, birthDate string, films []string, career []string, country string) ([]models.Character, error)
+	GetFavoriteActors(userId uint64, start uint64, end uint64) ([]models.Character, error)
+	CheckActor(userId uint64, actorId uint64) (bool, error)
+	AddFavoriteActor(userId uint64, actorId uint64) error
+	RemoveFavoriteActor(userId uint64, actorId uint64) error
+	AddFilm(actors []uint64, filmId uint64) error
 }
 
 type RepoPostgre struct {
@@ -234,4 +239,85 @@ func (repo *RepoPostgre) FindActor(name string, birthDate string, films []string
 	}
 
 	return actors, nil
+}
+
+func (repo *RepoPostgre) GetFavoriteActors(userId uint64, start uint64, end uint64) ([]models.Character, error) {
+	actors := []models.Character{}
+
+	rows, err := repo.db.Query(
+		"SELECT crew.name, crew.id, crew.photo FROM crew "+
+			"JOIN users_favorite_actor ON crew.id = users_favorite_actor.id_actor "+
+			"WHERE id_user = $1 "+
+			"OFFSET $2 LIMIT $3", userId, start, end)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("get favorite actors err: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		post := models.Character{}
+		err := rows.Scan(&post.NameActor, &post.IdActor, &post.ActorPhoto)
+		if err != nil {
+			return nil, fmt.Errorf("get favorite actors scan err: %w", err)
+		}
+		actors = append(actors, post)
+	}
+
+	return actors, nil
+}
+
+func (repo *RepoPostgre) CheckActor(userId uint64, actorId uint64) (bool, error) {
+	actor := models.Character{}
+	err := repo.db.QueryRow("SELECT id_actor FROM users_favorite_actor WHERE id_actor = $1 AND id_user = $2", actorId, userId).Scan(&actor.IdActor)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+
+		return false, fmt.Errorf("check actor err: %w", err)
+	}
+
+	return true, nil
+}
+
+func (repo *RepoPostgre) AddFavoriteActor(userId uint64, actorId uint64) error {
+	_, err := repo.db.Exec(
+		"INSERT INTO users_favorite_actor(id_user, id_actor) VALUES ($1, $2)", userId, actorId)
+	if err != nil {
+		return fmt.Errorf("add favorite actor err: %w", err)
+	}
+
+	return nil
+}
+
+func (repo *RepoPostgre) RemoveFavoriteActor(userId uint64, actorId uint64) error {
+	_, err := repo.db.Exec(
+		"DELETE FROM users_favorite_actor "+
+			"WHERE id_user = $1 AND id_actor = $2", userId, actorId)
+	if err != nil {
+		return fmt.Errorf("remove favorite actor err: %w", err)
+	}
+
+	return nil
+}
+
+func (repo *RepoPostgre) AddFilm(actors []uint64, filmId uint64) error {
+	var s strings.Builder
+	var params []interface{}
+	params = append(params, filmId)
+
+	s.WriteString("INSERT INTO person_in_film(id_film, id_person, id_profession, character_name) VALUES")
+	for i, actor := range actors {
+		if i != 0 {
+			s.WriteString(",")
+		}
+		s.WriteString("($1, $" + strconv.Itoa(i+2) + ", 1, '')")
+		params = append(params, actor)
+	}
+
+	_, err := repo.db.Exec(s.String(), params...)
+	if err != nil {
+		return fmt.Errorf("add films actors error: %w", err)
+	}
+	return nil
 }

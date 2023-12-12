@@ -34,6 +34,49 @@ func (m *MockICrewRepo) EXPECT() *MockICrewRepoMockRecorder {
 	return m.recorder
 }
 
+// AddFavoriteActor mocks base method.
+func (m *MockICrewRepo) AddFavoriteActor(userId, actorId uint64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddFavoriteActor", userId, actorId)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddFavoriteActor indicates an expected call of AddFavoriteActor.
+func (mr *MockICrewRepoMockRecorder) AddFavoriteActor(userId, actorId interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddFavoriteActor", reflect.TypeOf((*MockICrewRepo)(nil).AddFavoriteActor), userId, actorId)
+}
+
+// AddFilm mocks base method.
+func (m *MockICrewRepo) AddFilm(actors []uint64, filmId uint64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddFilm", actors, filmId)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddFilm indicates an expected call of AddFilm.
+func (mr *MockICrewRepoMockRecorder) AddFilm(actors, filmId interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddFilm", reflect.TypeOf((*MockICrewRepo)(nil).AddFilm), actors, filmId)
+}
+
+// CheckActor mocks base method.
+func (m *MockICrewRepo) CheckActor(userId, actorId uint64) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CheckActor", userId, actorId)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CheckActor indicates an expected call of CheckActor.
+func (mr *MockICrewRepoMockRecorder) CheckActor(userId, actorId interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckActor", reflect.TypeOf((*MockICrewRepo)(nil).CheckActor), userId, actorId)
+}
+
 // FindActor mocks base method.
 func (m *MockICrewRepo) FindActor(name, birthDate string, films, career []string, country string) ([]models.Character, error) {
 	m.ctrl.T.Helper()
@@ -62,6 +105,21 @@ func (m *MockICrewRepo) GetActor(actorId uint64) (*models.CrewItem, error) {
 func (mr *MockICrewRepoMockRecorder) GetActor(actorId interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActor", reflect.TypeOf((*MockICrewRepo)(nil).GetActor), actorId)
+}
+
+// GetFavoriteActors mocks base method.
+func (m *MockICrewRepo) GetFavoriteActors(userId, start, end uint64) ([]models.Character, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFavoriteActors", userId, start, end)
+	ret0, _ := ret[0].([]models.Character)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFavoriteActors indicates an expected call of GetFavoriteActors.
+func (mr *MockICrewRepoMockRecorder) GetFavoriteActors(userId, start, end interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFavoriteActors", reflect.TypeOf((*MockICrewRepo)(nil).GetFavoriteActors), userId, start, end)
 }
 
 // GetFilmCharacters mocks base method.
@@ -107,4 +165,18 @@ func (m *MockICrewRepo) GetFilmScenarists(filmId uint64) ([]models.CrewItem, err
 func (mr *MockICrewRepoMockRecorder) GetFilmScenarists(filmId interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFilmScenarists", reflect.TypeOf((*MockICrewRepo)(nil).GetFilmScenarists), filmId)
+}
+
+// RemoveFavoriteActor mocks base method.
+func (m *MockICrewRepo) RemoveFavoriteActor(userId, actorId uint64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveFavoriteActor", userId, actorId)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveFavoriteActor indicates an expected call of RemoveFavoriteActor.
+func (mr *MockICrewRepoMockRecorder) RemoveFavoriteActor(userId, actorId interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveFavoriteActor", reflect.TypeOf((*MockICrewRepo)(nil).RemoveFavoriteActor), userId, actorId)
 }

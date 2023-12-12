@@ -1,5 +1,5 @@
 user: "boss"
-dbname: "moviehubdb"
+dbname: "films_service"
 password: "p0$TGR3s$"
 host: "127.0.0.1"
 port: 5432

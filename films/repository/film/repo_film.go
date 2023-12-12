@@ -32,6 +32,8 @@ type IFilmsRepo interface {
 	CheckFilm(userId uint64, filmId uint64) (bool, error)
 	AddRating(filmId uint64, userId uint64, rating uint16) error
 	HasUsersRating(userId uint64, filmId uint64) (bool, error)
+	AddFilm(film models.FilmItem) error
+	GetFilmId(title string) (uint64, error)
 }
 
 type RepoPostgre struct {
@@ -339,8 +341,29 @@ func (repo *RepoPostgre) HasUsersRating(userId uint64, filmId uint64) (bool, err
 			return false, nil
 		}
 
-		return false, err
+		return false, fmt.Errorf("has users rating: %w", err)
 	}
 
 	return true, nil
+}
+
+func (repo *RepoPostgre) AddFilm(film models.FilmItem) error {
+	_, err := repo.db.Exec("INSERT INO film(title, info, poster, release_date, country, mpaa) "+
+		"VALUES($1, $2, $3, $4, $5, $6)",
+		film.Title, film.Info, film.Poster, film.ReleaseDate, film.Country, film.Mpaa)
+	if err != nil {
+		return fmt.Errorf("add film error: %w", err)
+	}
+
+	return nil
+}
+
+func (repo *RepoPostgre) GetFilmId(title string) (uint64, error) {
+	var id uint64
+	err := repo.db.QueryRow("SELECT id FROM film WHERE title = $1", title).Scan(&id)
+	if err != nil {
+		return 0, fmt.Errorf("get film id err: %w", err)
+	}
+
+	return id, nil
 }

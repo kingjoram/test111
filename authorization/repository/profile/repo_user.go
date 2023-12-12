@@ -139,7 +139,7 @@ func (repo *RepoPostgre) CreateUser(login string, password string, name string, 
 
 func (repo *RepoPostgre) GetNamesAndPaths(ids []int32) ([]string, []string, error) {
 	var s strings.Builder
-	s.WriteString("SELECT name, photo FROM profile WHERE id = ANY ($1::INTEGER[])")
+	s.WriteString("SELECT login, photo FROM profile WHERE id = ANY ($1::INTEGER[])")
 
 	rows, err := repo.db.Query(s.String(), pq.Array(ids))
 	if err != nil {
