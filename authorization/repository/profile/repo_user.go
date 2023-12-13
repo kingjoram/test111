@@ -234,7 +234,7 @@ func (repo *RepoPostgre) EditProfile(prevLogin string, login string, password st
 func (repo *RepoPostgre) GetUserRole(login string) (string, error) {
 	var role string
 
-	err := repo.db.QueryRow("SELECT role FROM profile WHERE login = $1", role).Scan(&role)
+	err := repo.db.QueryRow("SELECT role FROM profile WHERE login = $1", login).Scan(&role)
 	if err != nil {
 		return "", fmt.Errorf("get user role err: %w", err)
 	}

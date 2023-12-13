@@ -3,6 +3,7 @@ package delivery
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -486,32 +487,57 @@ func (a *API) AddFilm(w http.ResponseWriter, r *http.Request) {
 	date := r.FormValue("date")
 	country := r.FormValue("country")
 
-	genresString := r.MultipartForm.Value["genre"]
-	genres := make([]uint64, len(genresString))
-	for _, genre := range genresString {
-		genreUint, err := strconv.ParseUint(genre, 10, 64)
-		if err != nil {
-			a.lg.Error("add film error", "err", err.Error())
-			response.Status = http.StatusBadRequest
-			requests.SendResponse(w, response, a.lg)
-			return
+	genresString := r.FormValue("genre")
+	var genres []uint64
+	prev := 0
+	for i := 0; i < len(genresString); i++ {
+		if genresString[i] == ',' {
+			genreUint, err := strconv.ParseUint(genresString[prev:i], 10, 64)
+			if err != nil {
+				a.lg.Error("add film error", "err", err.Error())
+				response.Status = http.StatusBadRequest
+				requests.SendResponse(w, response, a.lg)
+				return
+			}
+			genres = append(genres, genreUint)
+			prev = i + 1
 		}
-		genres = append(genres, genreUint)
 	}
+	genreUint, err := strconv.ParseUint(genresString[prev:], 10, 64)
+	if err != nil {
+		a.lg.Error("add film error", "err", err.Error())
+		response.Status = http.StatusBadRequest
+		requests.SendResponse(w, response, a.lg)
+		return
+	}
+	genres = append(genres, genreUint)
+	prev = 0
 
-	actorsString := r.MultipartForm.Value["actors"]
-	actors := make([]uint64, len(actorsString))
-	for _, actor := range genresString {
-		actorUint, err := strconv.ParseUint(actor, 10, 64)
-		if err != nil {
-			a.lg.Error("add film error", "err", err.Error())
-			response.Status = http.StatusBadRequest
-			requests.SendResponse(w, response, a.lg)
-			return
+	actorsString := r.FormValue("actors")
+	var actors []uint64
+	for i := 0; i < len(actorsString); i++ {
+		if actorsString[i] == ',' {
+			actorUint, err := strconv.ParseUint(actorsString[prev:i], 10, 64)
+			if err != nil {
+				a.lg.Error("add film error", "err", err.Error())
+				response.Status = http.StatusBadRequest
+				requests.SendResponse(w, response, a.lg)
+				return
+			}
+			actors = append(actors, actorUint)
+			prev = i + 1
 		}
-		actors = append(actors, actorUint)
 	}
+	actorUint, err := strconv.ParseUint(actorsString[prev:], 10, 64)
+	if err != nil {
+		a.lg.Error("add film error", "err", err.Error())
+		response.Status = http.StatusBadRequest
+		requests.SendResponse(w, response, a.lg)
+		return
+	}
+	actors = append(actors, actorUint)
 
+	fmt.Println(actors, genres)
 	poster, handler, err := r.FormFile("photo")
 	if err != nil && !errors.Is(err, http.ErrMissingFile) {
 		a.lg.Error("add film error", "err", err.Error())
