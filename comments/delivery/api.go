@@ -9,27 +9,42 @@ import (
 
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/comments/usecase"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/configs"
+	"github.com/go-park-mail-ru/2023_2_Vkladyshi/metrics"
+	"github.com/go-park-mail-ru/2023_2_Vkladyshi/middleware"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/pkg/requests"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type API struct {
 	core   usecase.ICore
 	lg     *slog.Logger
 	mx     *http.ServeMux
+	mw     *middleware.ResponseMiddleware
 	adress string
 }
 
 func GetApi(c *usecase.Core, l *slog.Logger, cfg *configs.CommentCfg) *API {
+	resp := &requests.Response{
+		Status: http.StatusOK,
+		Body:   nil,
+	}
+
+	middleware := &middleware.ResponseMiddleware{
+		Response: resp,
+		Metrix:   metrics.GetMetrics(),
+	}
+
 	api := &API{
 		core:   c,
 		lg:     l.With("module", "api"),
+		mx:     http.NewServeMux(),
+		mw:     middleware,
 		adress: cfg.ServerAdress,
 	}
-	mx := http.NewServeMux()
-	mx.HandleFunc("/api/v1/comment", api.Comment)
-	mx.HandleFunc("/api/v1/comment/add", api.AddComment)
 
-	api.mx = mx
+	api.mx.Handle("/metrics", promhttp.Handler())
+	api.mx.Handle("/api/v1/comment", api.mw.GetResponse(http.HandlerFunc(api.Comment), l))
+	api.mx.Handle("/api/v1/comment/add", api.mw.GetResponse(http.HandlerFunc(api.AddComment), l))
 
 	return api
 }
@@ -42,17 +57,15 @@ func (a *API) ListenAndServe() {
 }
 
 func (a *API) Comment(w http.ResponseWriter, r *http.Request) {
-	response := requests.Response{Status: http.StatusOK, Body: nil}
+	a.mw.Response = &requests.Response{Status: http.StatusOK, Body: nil}
 	if r.Method != http.MethodGet {
-		response.Status = http.StatusMethodNotAllowed
-		requests.SendResponse(w, response, a.lg)
+		a.mw.Response.Status = http.StatusMethodNotAllowed
 		return
 	}
 
 	filmId, err := strconv.ParseUint(r.URL.Query().Get("film_id"), 10, 64)
 	if err != nil {
-		response.Status = http.StatusBadRequest
-		requests.SendResponse(w, response, a.lg)
+		a.mw.Response.Status = http.StatusBadRequest
 		return
 	}
 	page, err := strconv.ParseUint(r.URL.Query().Get("page"), 10, 64)
@@ -67,43 +80,37 @@ func (a *API) Comment(w http.ResponseWriter, r *http.Request) {
 	comments, err := a.core.GetFilmComments(filmId, (page-1)*pageSize, pageSize)
 	if err != nil {
 		a.lg.Error("Comment", "err", err.Error())
-		response.Status = http.StatusInternalServerError
-		requests.SendResponse(w, response, a.lg)
+		a.mw.Response.Status = http.StatusInternalServerError
 		return
 	}
 
 	commentsResponse := requests.CommentResponse{Comments: comments}
 
-	response.Body = commentsResponse
-	requests.SendResponse(w, response, a.lg)
+	a.mw.Response.Body = commentsResponse
 }
 
 func (a *API) AddComment(w http.ResponseWriter, r *http.Request) {
-	response := requests.Response{Status: http.StatusOK, Body: nil}
+	a.mw.Response = &requests.Response{Status: http.StatusOK, Body: nil}
 	if r.Method != http.MethodPost {
-		response.Status = http.StatusMethodNotAllowed
-		requests.SendResponse(w, response, a.lg)
+		a.mw.Response.Status = http.StatusMethodNotAllowed
 		return
 	}
 
 	session, err := r.Cookie("session_id")
 	if err == http.ErrNoCookie {
-		response.Status = http.StatusUnauthorized
-		requests.SendResponse(w, response, a.lg)
+		a.mw.Response.Status = http.StatusUnauthorized
 		return
 	}
 	if err != nil {
 		a.lg.Error("Add comment error", "err", err.Error())
-		response.Status = http.StatusInternalServerError
-		requests.SendResponse(w, response, a.lg)
+		a.mw.Response.Status = http.StatusInternalServerError
 		return
 	}
 
 	userId, err := a.core.GetUserId(r.Context(), session.Value)
 	if err != nil {
 		a.lg.Error("Add comment error", "err", err.Error())
-		response.Status = http.StatusInternalServerError
-		requests.SendResponse(w, response, a.lg)
+		a.mw.Response.Status = http.StatusInternalServerError
 		return
 	}
 
@@ -111,27 +118,22 @@ func (a *API) AddComment(w http.ResponseWriter, r *http.Request) {
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		response.Status = http.StatusBadRequest
-		requests.SendResponse(w, response, a.lg)
+		a.mw.Response.Status = http.StatusBadRequest
 		return
 	}
 
 	if err = json.Unmarshal(body, &commentRequest); err != nil {
-		response.Status = http.StatusBadRequest
-		requests.SendResponse(w, response, a.lg)
+		a.mw.Response.Status = http.StatusBadRequest
 		return
 	}
 
 	found, err := a.core.AddComment(commentRequest.FilmId, userId, commentRequest.Rating, commentRequest.Text)
 	if err != nil {
 		a.lg.Error("Add Comment error", "err", err.Error())
-		response.Status = http.StatusInternalServerError
+		a.mw.Response.Status = http.StatusInternalServerError
 	}
 	if found {
-		response.Status = http.StatusNotAcceptable
-		requests.SendResponse(w, response, a.lg)
+		a.mw.Response.Status = http.StatusNotAcceptable
 		return
 	}
-
-	requests.SendResponse(w, response, a.lg)
 }

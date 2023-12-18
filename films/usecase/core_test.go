@@ -527,3 +527,240 @@ func TestFavoriteFilmsAdd(t *testing.T) {
 		return
 	}
 }
+
+func TestAddRating(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockObj := mocks.NewMockIFilmsRepo(mockCtrl)
+	mockObj.EXPECT().HasUsersRating(uint64(10), uint64(1)).Return(true, nil).Times(1).Times(1)
+	mockObj.EXPECT().HasUsersRating(uint64(0), uint64(0)).Return(false, fmt.Errorf("repo_error")).Times(1)
+	mockObj.EXPECT().HasUsersRating(uint64(1), uint64(1)).Return(false, nil).Times(2)
+
+	mockObj.EXPECT().AddRating(uint64(1), uint64(1), uint16(0)).Return(fmt.Errorf("repo_error")).Times(1)
+	mockObj.EXPECT().AddRating(uint64(1), uint64(1), uint16(5)).Return(nil).Times(1)
+
+	var buff bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&buff, nil))
+	core := Core{films: mockObj, lg: logger}
+
+	testCases := map[string]struct {
+		filmId uint64
+		userId uint64
+		rating uint16
+		result bool
+		hasErr bool
+	}{
+		"has user err": {
+			filmId: 0,
+			userId: 0,
+			hasErr: true,
+			result: false,
+		},
+		"has user found": {
+			filmId: 1,
+			userId: 10,
+			hasErr: false,
+			result: true,
+		},
+		"add rating err": {
+			filmId: 1,
+			userId: 1,
+			rating: 0,
+			result: false,
+			hasErr: true,
+		},
+		"OK": {
+			filmId: 1,
+			userId: 1,
+			rating: 5,
+			result: false,
+			hasErr: false,
+		},
+	}
+
+	for _, curr := range testCases {
+		result, err := core.AddRating(curr.filmId, curr.userId, curr.rating)
+		if curr.hasErr && err == nil {
+			t.Errorf("unexpected err result")
+			return
+		}
+		if result != curr.result {
+			t.Errorf("unexpected result")
+			return
+		}
+	}
+}
+
+func TestAddFilm(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	film := models.FilmItem{
+		Title: "t",
+	}
+	badFilm := models.FilmItem{
+		Title: "t2",
+	}
+	genres := []uint64{1}
+	actors := []uint64{2}
+
+	mockFilm := mocks.NewMockIFilmsRepo(mockCtrl)
+	mockCrew := mocks.NewMockICrewRepo(mockCtrl)
+	mockGenres := mocks.NewMockIGenreRepo(mockCtrl)
+
+	mockFilm.EXPECT().AddFilm(models.FilmItem{}).Return(fmt.Errorf("repo_err")).Times(1)
+	mockFilm.EXPECT().AddFilm(badFilm).Return(nil).Times(1)
+	mockFilm.EXPECT().AddFilm(film).Return(nil).Times(3)
+
+	mockFilm.EXPECT().GetFilmId(badFilm.Title).Return(uint64(0), fmt.Errorf("repo_err")).Times(1)
+	mockFilm.EXPECT().GetFilmId(film.Title).Return(uint64(1), nil).Times(3)
+
+	mockGenres.EXPECT().AddFilm(nil, uint64(1)).Return(fmt.Errorf("repo_err")).Times(1)
+	mockGenres.EXPECT().AddFilm(genres, uint64(1)).Return(nil).Times(2)
+
+	mockCrew.EXPECT().AddFilm(nil, uint64(1)).Return(fmt.Errorf("repo_err")).Times(1)
+	mockCrew.EXPECT().AddFilm(actors, uint64(1)).Return(nil).Times(1)
+
+	var buff bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&buff, nil))
+	core := Core{films: mockFilm, lg: logger, crew: mockCrew, genres: mockGenres}
+
+	testCases := map[string]struct {
+		film   models.FilmItem
+		actors []uint64
+		genres []uint64
+		hasErr bool
+	}{
+		"films add film err": {
+			film:   models.FilmItem{},
+			hasErr: true,
+		},
+		"get film id err": {
+			film:   badFilm,
+			hasErr: true,
+		},
+		"genres err": {
+			film:   film,
+			genres: nil,
+			hasErr: true,
+		},
+		"actors err": {
+			film:   film,
+			genres: genres,
+			actors: nil,
+			hasErr: true,
+		},
+		"OK": {
+			film:   film,
+			genres: genres,
+			actors: actors,
+		},
+	}
+
+	for _, curr := range testCases {
+		err := core.AddFilm(curr.film, curr.genres, curr.actors)
+		if curr.hasErr && err == nil {
+			t.Errorf("unexpected err result")
+			return
+		}
+	}
+}
+
+func TestFavoriteActors(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	expectedFilm := models.Character{NameActor: "n"}
+	expected := []models.Character{expectedFilm}
+
+	mockObj := mocks.NewMockICrewRepo(mockCtrl)
+	firstCall := mockObj.EXPECT().GetFavoriteActors(uint64(1), uint64(1), uint64(1)).Return(expected, nil)
+	mockObj.EXPECT().GetFavoriteActors(uint64(1), uint64(1), uint64(1)).After(firstCall).Return(nil, fmt.Errorf("repo_error"))
+
+	var buff bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&buff, nil))
+	core := Core{crew: mockObj, lg: logger}
+
+	result, err := core.FavoriteActors(1, 1, 1)
+	if err != nil {
+		t.Errorf("unexpected error %s", err)
+		return
+	}
+	if !reflect.DeepEqual(expected, result) {
+		t.Errorf("wanted %v, had %v", expected, result)
+		return
+	}
+
+	result, err = core.FavoriteActors(1, 1, 1)
+	if err == nil {
+		t.Errorf("wanted error")
+		return
+	}
+	if result != nil {
+		t.Errorf("unexpected result")
+		return
+	}
+}
+
+func TestFavoriteActorsRemove(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockObj := mocks.NewMockICrewRepo(mockCtrl)
+	firstCall := mockObj.EXPECT().RemoveFavoriteActor(uint64(1), uint64(1)).Return(nil)
+	mockObj.EXPECT().RemoveFavoriteActor(uint64(1), uint64(1)).After(firstCall).Return(fmt.Errorf("repo_error"))
+
+	var buff bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&buff, nil))
+	core := Core{crew: mockObj, lg: logger}
+
+	err := core.FavoriteActorsRemove(1, 1)
+	if err != nil {
+		t.Errorf("unexpected error %s", err)
+		return
+	}
+
+	err = core.FavoriteActorsRemove(1, 1)
+	if err == nil {
+		t.Errorf("wanted error")
+		return
+	}
+}
+
+func TestFavoriteActorsAdd(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockObj := mocks.NewMockICrewRepo(mockCtrl)
+	mockObj.EXPECT().CheckActor(uint64(1), uint64(1)).Return(true, nil).Times(1).Times(1)
+	mockObj.EXPECT().CheckActor(uint64(1), uint64(1)).Return(false, fmt.Errorf("repo_err")).Times(1)
+	mockObj.EXPECT().CheckActor(uint64(1), uint64(1)).Return(false, nil).Times(2)
+
+	mockObj.EXPECT().AddFavoriteActor(uint64(1), uint64(1)).Return(fmt.Errorf("repo_error")).Times(1)
+	mockObj.EXPECT().AddFavoriteActor(uint64(1), uint64(1)).Return(nil).Times(1)
+
+	var buff bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&buff, nil))
+	core := Core{crew: mockObj, lg: logger}
+
+	err := core.FavoriteActorsAdd(1, 1)
+	if !errors.Is(err, ErrFoundFavorite) {
+		t.Errorf("expected found error, got %s", err)
+		return
+	}
+
+	for i := 0; i < 2; i++ {
+		err = core.FavoriteActorsAdd(1, 1)
+		if err == nil {
+			t.Errorf("wanted error")
+			return
+		}
+	}
+
+	err = core.FavoriteActorsAdd(1, 1)
+	if err != nil {
+		t.Errorf("unexpected error")
+		return
+	}
+}

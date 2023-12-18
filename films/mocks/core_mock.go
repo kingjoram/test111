@@ -6,12 +6,15 @@ package mocks
 
 import (
 	context "context"
-	reflect "reflect"
-
 	models "github.com/go-park-mail-ru/2023_2_Vkladyshi/pkg/models"
 	requests "github.com/go-park-mail-ru/2023_2_Vkladyshi/pkg/requests"
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
+
+type contextKey string
+
+const UserIDKey contextKey = "userId"
 
 // MockICore is a mock of ICore interface.
 type MockICore struct {
@@ -275,9 +278,9 @@ func (mr *MockICoreMockRecorder) GetGenre(genreId interface{}) *gomock.Call {
 // GetUserId mocks base method.
 func (m *MockICore) GetUserId(ctx context.Context, sid string) (uint64, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUserId", ctx, sid)
-	ret0, _ := ret[0].(uint64)
-	ret1, _ := ret[1].(error)
+	userIdValue := ctx.Value(UserIDKey)
+	ret0, _ := userIdValue.(uint64)
+	ret1, _ := gomock.Nil().(error)
 	return ret0, ret1
 }
 

@@ -127,3 +127,45 @@ func TestGetGenreById(t *testing.T) {
 		t.Errorf("get comments error, comments should be nil")
 	}
 }
+
+func TestAddFilm(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("cant create mock: %s", err)
+	}
+	defer db.Close()
+
+	selectRow := "INSERT INTO films_genre(id_film, id_genre) VALUES($1, $2)"
+
+	mock.ExpectExec(
+		regexp.QuoteMeta(selectRow)).
+		WithArgs(1, 1).WillReturnResult(sqlmock.NewResult(0, 1))
+
+	repo := &RepoPostgre{
+		db: db,
+	}
+
+	err = repo.AddFilm([]uint64{1}, 1)
+	if err != nil {
+		t.Errorf("unexpected error: %s", err)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+		return
+	}
+
+	mock.ExpectExec(
+		regexp.QuoteMeta(selectRow)).
+		WithArgs(1, 1).WillReturnError(fmt.Errorf("repo err"))
+
+	err = repo.AddFilm([]uint64{1}, 1)
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+		return
+	}
+	if err == nil {
+		t.Errorf("expected error, got nil")
+		return
+	}
+}

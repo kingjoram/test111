@@ -38,6 +38,7 @@ func main() {
 		lg.Error("cant create core")
 		return
 	}
+
 	api := delivery_auth.GetApi(core, lg)
 
 	errs := make(chan error, 2)
@@ -47,6 +48,7 @@ func main() {
 		lg.Error("cant create server")
 		return
 	}
+
 	go func() {
 		errs <- api.ListenAndServe()
 	}()

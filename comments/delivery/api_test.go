@@ -13,27 +13,27 @@ import (
 	"testing"
 
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/comments/mocks"
+	"github.com/go-park-mail-ru/2023_2_Vkladyshi/metrics"
+	"github.com/go-park-mail-ru/2023_2_Vkladyshi/middleware"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/pkg/requests"
 	"github.com/golang/mock/gomock"
 )
-
-func getResponse(w *httptest.ResponseRecorder) (*requests.Response, error) {
-	var response requests.Response
-
-	body, _ := io.ReadAll(w.Body)
-	err := json.Unmarshal(body, &response)
-	if err != nil {
-		return nil, fmt.Errorf("cant unmarshal jsone")
-	}
-
-	return &response, nil
-}
 
 func createBody(req requests.CommentRequest) io.Reader {
 	jsonReq, _ := json.Marshal(req)
 
 	body := bytes.NewBuffer(jsonReq)
 	return body
+}
+
+var resp requests.Response = requests.Response{
+	Status: http.StatusOK,
+	Body:   nil,
+}
+
+var md middleware.ResponseMiddleware = middleware.ResponseMiddleware{
+	Response: &resp,
+	Metrix:   metrics.GetMetrics(),
 }
 
 func TestComment(t *testing.T) {
@@ -67,7 +67,7 @@ func TestComment(t *testing.T) {
 	var buff bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buff, nil))
 
-	api := API{core: mockCore, lg: logger}
+	api := API{core: mockCore, mw: &md, lg: logger}
 
 	for _, curr := range testCases {
 		r := httptest.NewRequest(curr.method, "/api/v1/comment", nil)
@@ -79,17 +79,13 @@ func TestComment(t *testing.T) {
 		w := httptest.NewRecorder()
 
 		api.Comment(w, r)
-		response, err := getResponse(w)
-		if err != nil {
-			t.Errorf("unexpected error: %s", err)
+
+		if api.mw.Response.Status != curr.result.Status {
+			t.Errorf("unexpected status: %d", api.mw.Response.Status)
 			return
 		}
-		if response.Status != curr.result.Status {
-			t.Errorf("unexpected status: %d", response.Status)
-			return
-		}
-		if !reflect.DeepEqual(response.Body, curr.result.Body) {
-			t.Errorf("wanted %v, got %v", curr.result.Body, response.Body)
+		if !reflect.DeepEqual(api.mw.Response.Body, curr.result.Body) {
+			t.Errorf("wanted %v, got %v", curr.result.Body, api.mw.Response.Body)
 			return
 		}
 	}
@@ -164,7 +160,7 @@ func TestCommentAdd(t *testing.T) {
 	var buff bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buff, nil))
 
-	api := API{core: mockCore, lg: logger}
+	api := API{core: mockCore, mw: &md, lg: logger}
 
 	for _, curr := range testCases {
 		r := httptest.NewRequest(curr.method, "/api/v1/comment/add", curr.body)
@@ -174,18 +170,14 @@ func TestCommentAdd(t *testing.T) {
 			r.AddCookie(&http.Cookie{Name: "session_id", Value: curr.cookieValue})
 		}
 		api.AddComment(w, r)
-		response, err := getResponse(w)
-		if err != nil {
-			t.Errorf("unexpected error: %s", err)
-			return
-		}
-		if response.Status != curr.result.Status {
+
+		if api.mw.Response.Status != curr.result.Status {
 			fmt.Println(api.lg)
-			t.Errorf("unexpected status: %d, wanted: %d", response.Status, curr.result.Status)
+			t.Errorf("unexpected status: %d, wanted: %d", api.mw.Response.Status, curr.result.Status)
 			return
 		}
-		if response.Body != nil {
-			t.Errorf("unexpected body %v", response.Body)
+		if api.mw.Response.Body != nil {
+			t.Errorf("unexpected body %v", api.mw.Response.Body)
 			return
 		}
 	}

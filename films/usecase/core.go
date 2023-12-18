@@ -14,9 +14,10 @@ import (
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/films/repository/film"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/films/repository/genre"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/films/repository/profession"
-	"github.com/go-park-mail-ru/2023_2_Vkladyshi/pkg/middleware"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/pkg/models"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/pkg/requests"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 var (
@@ -58,10 +59,20 @@ type Core struct {
 	client     auth.AuthorizationClient
 }
 
+func GetClient(port string) (auth.AuthorizationClient, error) {
+	conn, err := grpc.Dial(port, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, fmt.Errorf("grpc connect err: %w", err)
+	}
+	client := auth.NewAuthorizationClient(conn)
+
+	return client, nil
+}
+
 func GetCore(cfg_sql *configs.DbDsnCfg, lg *slog.Logger,
 	films film.IFilmsRepo, genres genre.IGenreRepo, actors crew.ICrewRepo, professions profession.IProfessionRepo, calendar calendar.ICalendarRepo,
 ) *Core {
-	client, err := middleware.GetClient(cfg_sql.GrpcPort)
+	client, err := GetClient(cfg_sql.GrpcPort)
 	if err != nil {
 		lg.Error("get client error", "err", err.Error())
 		return nil

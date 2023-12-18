@@ -8,8 +8,9 @@ import (
 	auth "github.com/go-park-mail-ru/2023_2_Vkladyshi/authorization/proto"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/comments/repository/comment"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/configs"
-	"github.com/go-park-mail-ru/2023_2_Vkladyshi/pkg/middleware"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/pkg/models"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 //go:generate mockgen -source=core.go -destination=../mocks/core_mock.go -package=mocks
@@ -26,8 +27,18 @@ type Core struct {
 	client   auth.AuthorizationClient
 }
 
+func GetClient(port string) (auth.AuthorizationClient, error) {
+	conn, err := grpc.Dial(port, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, fmt.Errorf("grpc connect err: %w", err)
+	}
+	client := auth.NewAuthorizationClient(conn)
+
+	return client, nil
+}
+
 func GetCore(cfg_sql *configs.CommentCfg, lg *slog.Logger, comments comment.ICommentRepo) *Core {
-	client, err := middleware.GetClient(cfg_sql.GrpcPort)
+	client, err := GetClient(cfg_sql.GrpcPort)
 	if err != nil {
 		lg.Error("get client error", "err", err.Error())
 		return nil
