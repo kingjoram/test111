@@ -8,21 +8,21 @@ import (
 )
 
 type DbDsnCfg struct {
-	User          string `yaml:"user"`
-	DbName        string `yaml:"dbname"`
-	Password      string `yaml:"password"`
-	Host          string `yaml:"host"`
-	Port          int    `yaml:"port"`
-	Sslmode       string `yaml:"sslmode"`
-	MaxOpenConns  int    `yaml:"max_open_conns"`
-	Timer         uint32 `yaml:"timer"`
-	Films_db      string `yaml:"films_db"`
-	Genres_db     string `yaml:"genres_db"`
-	Crew_db       string `yaml:"crew_db"`
-	Profession_db string `yaml:"profession_db"`
-	Calendar_db   string `yaml:"calendar_db"`
-	ServerAdress  string `yaml:"server_adress"`
-	GrpcPort      string `yaml:"grpc_port"`
+	User         string `yaml:"user"`
+	DbName       string `yaml:"dbname"`
+	Password     string `yaml:"password"`
+	Host         string `yaml:"host"`
+	Port         int    `yaml:"port"`
+	Sslmode      string `yaml:"sslmode"`
+	MaxOpenConns int    `yaml:"max_open_conns"`
+	Timer        uint32 `yaml:"timer"`
+	FilmsDb      string `yaml:"films_db"`
+	GenresDb     string `yaml:"genres_db"`
+	CrewDb       string `yaml:"crew_db"`
+	ProfessionDb string `yaml:"profession_db"`
+	CalendarDb   string `yaml:"calendar_db"`
+	ServerAdress string `yaml:"server_adress"`
+	GrpcPort     string `yaml:"grpc_port"`
 }
 
 type CommentCfg struct {
@@ -34,7 +34,7 @@ type CommentCfg struct {
 	Sslmode      string `yaml:"sslmode"`
 	MaxOpenConns int    `yaml:"max_open_conns"`
 	Timer        uint32 `yaml:"timer"`
-	Comments_db  string `yaml:"comment_db"`
+	CommentsDb   string `yaml:"comment_db"`
 	ServerAdress string `yaml:"server_adress"`
 	GrpcPort     string `yaml:"grpc_port"`
 }

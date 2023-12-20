@@ -1,7 +1,6 @@
 package delivery
 
 import (
-	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/comments/usecase"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/configs"
+	"github.com/go-park-mail-ru/2023_2_Vkladyshi/middleware"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/pkg/requests"
 	"github.com/mailru/easyjson"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -35,7 +35,7 @@ func GetApi(c *usecase.Core, l *slog.Logger, cfg *configs.CommentCfg) *API {
 
 	api.mx.Handle("/metrics", promhttp.Handler())
 	api.mx.HandleFunc("/api/v1/comment", api.Comment)
-	api.mx.HandleFunc("/api/v1/comment/add", api.AddComment)
+	api.mx.Handle("/api/v1/comment/add", middleware.AuthCheck(http.HandlerFunc(api.AddComment), c, l))
 
 	return api
 }
@@ -95,20 +95,7 @@ func (a *API) AddComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session, err := r.Cookie("session_id")
-	if errors.Is(err, http.ErrNoCookie) {
-		response.Status = http.StatusUnauthorized
-		a.ct.SendResponse(w, r, response, a.lg, start)
-		return
-	}
-
-	userId, err := a.core.GetUserId(r.Context(), session.Value)
-	if err != nil {
-		a.lg.Error("Add comment error", "err", err.Error())
-		response.Status = http.StatusInternalServerError
-		a.ct.SendResponse(w, r, response, a.lg, start)
-		return
-	}
+	userId := r.Context().Value(middleware.UserIDKey).(uint64)
 
 	var commentRequest requests.CommentRequest
 

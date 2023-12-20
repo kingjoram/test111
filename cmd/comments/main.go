@@ -24,7 +24,7 @@ func main() {
 	}
 
 	var comments comment.ICommentRepo
-	switch config.Comments_db {
+	switch config.CommentsDb {
 	case "postgres":
 		comments, err = comment.GetCommentRepo(config, lg)
 	}

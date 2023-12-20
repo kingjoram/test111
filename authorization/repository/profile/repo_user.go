@@ -247,18 +247,18 @@ func (repo *RepoPostgre) GetUserRole(login string) (string, error) {
 func (repo *RepoPostgre) IsSubscribed(login string) (bool, error) {
 	var isSubcribed bool
 
-	err := repo.db.QueryRow("SELECT is_subscribed FROM profile WHERE login = $1", login).Scan(&isSubcribed)
+	err := repo.db.QueryRow("SELECT profile.is_subsсribed FROM profile WHERE login = $1", login).Scan(&isSubcribed)
 	if err != nil {
-		return false, fmt.Errorf("is subcribed err: %w", err)
+		return false, fmt.Errorf("is subscribed err: %w", err)
 	}
 
 	return isSubcribed, nil
 }
 
 func (repo *RepoPostgre) ChangeSubsribe(login string, isSubscribed bool) error {
-	_, err := repo.db.Exec("UPDATE profile SET is_subsribed = $1 WHERE login = $2", isSubscribed, login)
+	_, err := repo.db.Exec("UPDATE profile SET is_subsсribed = $1 WHERE login = $2", isSubscribed, login)
 	if err != nil {
-		return fmt.Errorf("change subcribe error: %w", err)
+		return fmt.Errorf("change subscribe error: %w", err)
 	}
 
 	return nil

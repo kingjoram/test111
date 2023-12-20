@@ -262,7 +262,7 @@ func (core *Core) Subscribe(userName string) (bool, error) {
 
 	err = core.users.ChangeSubsribe(userName, !isSubcribed)
 	if err != nil {
-		core.lg.Error("change subsribe error", "err", err.Error())
+		core.lg.Error("change subscribe error", "err", err.Error())
 		return false, fmt.Errorf("")
 	}
 
@@ -272,7 +272,7 @@ func (core *Core) Subscribe(userName string) (bool, error) {
 func (core *Core) IsSubscribed(userName string) (bool, error) {
 	isSubcribed, err := core.users.IsSubscribed(userName)
 	if err != nil {
-		core.lg.Error("is subsribed error", "err", err.Error())
+		core.lg.Error("is subcsribed error", "err", err.Error())
 		return false, fmt.Errorf("")
 	}
 

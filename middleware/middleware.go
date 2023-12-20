@@ -5,15 +5,17 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-
-	"github.com/go-park-mail-ru/2023_2_Vkladyshi/films/usecase"
 )
 
 type contextKey string
 
 const UserIDKey contextKey = "userId"
 
-func AuthCheck(next http.Handler, core *usecase.Core, lg *slog.Logger) http.Handler {
+type Core interface {
+	GetUserId(ctx context.Context, sid string) (uint64, error)
+}
+
+func AuthCheck(next http.Handler, core Core, lg *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		session, err := r.Cookie("session_id")
 		if errors.Is(err, http.ErrNoCookie) {

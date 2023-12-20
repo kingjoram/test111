@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/comments/mocks"
+	"github.com/go-park-mail-ru/2023_2_Vkladyshi/middleware"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/pkg/requests"
 	"github.com/golang/mock/gomock"
 	"github.com/mailru/easyjson"
@@ -99,58 +100,34 @@ func TestComment(t *testing.T) {
 
 func TestCommentAdd(t *testing.T) {
 	testCases := map[string]struct {
-		method      string
-		result      requests.Response
-		addCookie   bool
-		body        io.Reader
-		cookieValue string
+		method string
+		result requests.Response
+		body   io.Reader
 	}{
 		"Bad method": {
-			method:    http.MethodGet,
-			result:    requests.Response{Status: http.StatusMethodNotAllowed, Body: nil},
-			addCookie: false,
-			body:      nil,
-		},
-		"No cookie": {
-			method:    http.MethodPost,
-			result:    requests.Response{Status: http.StatusUnauthorized, Body: nil},
-			addCookie: false,
-			body:      nil,
-		},
-		"get user id error": {
-			method:      http.MethodPost,
-			result:      requests.Response{Status: http.StatusInternalServerError, Body: nil},
-			addCookie:   true,
-			body:        nil,
-			cookieValue: "sid1",
+			method: http.MethodGet,
+			result: requests.Response{Status: http.StatusMethodNotAllowed, Body: nil},
+			body:   nil,
 		},
 		"no body error": {
-			method:      http.MethodPost,
-			result:      requests.Response{Status: http.StatusBadRequest, Body: nil},
-			addCookie:   true,
-			body:        nil,
-			cookieValue: "sid2",
+			method: http.MethodPost,
+			result: requests.Response{Status: http.StatusBadRequest, Body: nil},
+			body:   nil,
 		},
 		"add comment error": {
-			method:      http.MethodPost,
-			result:      requests.Response{Status: http.StatusInternalServerError, Body: nil},
-			addCookie:   true,
-			body:        createBody(requests.CommentRequest{Rating: 10, FilmId: 1, Text: ""}),
-			cookieValue: "sid2",
+			method: http.MethodPost,
+			result: requests.Response{Status: http.StatusInternalServerError, Body: nil},
+			body:   createBody(requests.CommentRequest{Rating: 10, FilmId: 1, Text: ""}),
 		},
 		"found error": {
-			method:      http.MethodPost,
-			result:      requests.Response{Status: http.StatusNotAcceptable, Body: nil},
-			addCookie:   true,
-			body:        createBody(requests.CommentRequest{Rating: 10, FilmId: 2, Text: ""}),
-			cookieValue: "sid2",
+			method: http.MethodPost,
+			result: requests.Response{Status: http.StatusNotAcceptable, Body: nil},
+			body:   createBody(requests.CommentRequest{Rating: 10, FilmId: 2, Text: ""}),
 		},
 		"Ok": {
-			method:      http.MethodPost,
-			result:      requests.Response{Status: http.StatusOK, Body: nil},
-			addCookie:   true,
-			body:        createBody(requests.CommentRequest{Rating: 10, FilmId: 3, Text: ""}),
-			cookieValue: "sid2",
+			method: http.MethodPost,
+			result: requests.Response{Status: http.StatusOK, Body: nil},
+			body:   createBody(requests.CommentRequest{Rating: 10, FilmId: 3, Text: ""}),
 		},
 	}
 
@@ -158,8 +135,6 @@ func TestCommentAdd(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	mockCore := mocks.NewMockICore(mockCtrl)
-	mockCore.EXPECT().GetUserId(context.Background(), string("sid1")).Return(uint64(0), fmt.Errorf("core_err")).Times(1)
-	mockCore.EXPECT().GetUserId(context.Background(), string("sid2")).Return(uint64(1), nil).Times(4)
 	mockCore.EXPECT().AddComment(uint64(1), uint64(1), uint16(10), string("")).Return(false, fmt.Errorf("core_err")).Times(1)
 	mockCore.EXPECT().AddComment(uint64(2), uint64(1), uint16(10), string("")).Return(true, nil).Times(1)
 	mockCore.EXPECT().AddComment(uint64(3), uint64(1), uint16(10), string("")).Return(false, nil).Times(1)
@@ -170,12 +145,10 @@ func TestCommentAdd(t *testing.T) {
 
 	for _, curr := range testCases {
 		r := httptest.NewRequest(curr.method, "/api/v1/comment/add", curr.body)
+		newReq := r.WithContext(context.WithValue(r.Context(), middleware.UserIDKey, uint64(1)))
 		w := httptest.NewRecorder()
 
-		if curr.addCookie {
-			r.AddCookie(&http.Cookie{Name: "session_id", Value: curr.cookieValue})
-		}
-		api.AddComment(w, r)
+		api.AddComment(w, newReq)
 		response, err := getResponse(w)
 		if err != nil {
 			t.Errorf("unexpected error: %s", err)

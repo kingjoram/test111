@@ -34,7 +34,7 @@ func main() {
 		professions profession.IProfessionRepo
 		news        calendar.ICalendarRepo
 	)
-	switch config.Films_db {
+	switch config.FilmsDb {
 	case "postgres":
 		films, err = film.GetFilmRepo(config, lg)
 	}
@@ -43,7 +43,7 @@ func main() {
 		return
 	}
 
-	switch config.Genres_db {
+	switch config.GenresDb {
 	case "postgres":
 		genres, err = genre.GetGenreRepo(config, lg)
 	}
@@ -52,7 +52,7 @@ func main() {
 		return
 	}
 
-	switch config.Crew_db {
+	switch config.CrewDb {
 	case "postgres":
 		actors, err = crew.GetCrewRepo(config, lg)
 	}
@@ -61,7 +61,7 @@ func main() {
 		return
 	}
 
-	switch config.Profession_db {
+	switch config.ProfessionDb {
 	case "postgres":
 		professions, err = profession.GetProfessionRepo(config, lg)
 	}
@@ -70,7 +70,7 @@ func main() {
 		return
 	}
 
-	switch config.Calendar_db {
+	switch config.CalendarDb {
 	case "postgres":
 		news, err = calendar.GetCalendarRepo(config, lg)
 	}
