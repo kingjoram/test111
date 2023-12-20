@@ -25,6 +25,8 @@ type IUserRepo interface {
 	GetNamesAndPaths(ids []int32) ([]string, []string, error)
 	CheckUserPassword(login string, password string) (bool, error)
 	GetUserRole(login string) (string, error)
+	IsSubscribed(login string) (bool, error)
+	ChangeSubsribe(login string, isSubscribed bool) error
 }
 
 type RepoPostgre struct {
@@ -240,4 +242,24 @@ func (repo *RepoPostgre) GetUserRole(login string) (string, error) {
 	}
 
 	return role, nil
+}
+
+func (repo *RepoPostgre) IsSubscribed(login string) (bool, error) {
+	var isSubcribed bool
+
+	err := repo.db.QueryRow("SELECT is_subscribed FROM profile WHERE login = $1", login).Scan(&isSubcribed)
+	if err != nil {
+		return false, fmt.Errorf("is subcribed err: %w", err)
+	}
+
+	return isSubcribed, nil
+}
+
+func (repo *RepoPostgre) ChangeSubsribe(login string, isSubscribed bool) error {
+	_, err := repo.db.Exec("UPDATE profile SET is_subsribed = $1 WHERE login = $2", isSubscribed, login)
+	if err != nil {
+		return fmt.Errorf("change subcribe error: %w", err)
+	}
+
+	return nil
 }

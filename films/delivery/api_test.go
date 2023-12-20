@@ -3,7 +3,6 @@ package delivery
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -14,43 +13,57 @@ import (
 
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/films/mocks"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/films/usecase"
-	"github.com/go-park-mail-ru/2023_2_Vkladyshi/metrics"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/middleware"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/pkg/models"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/pkg/requests"
 	"github.com/golang/mock/gomock"
+	"github.com/mailru/easyjson"
 )
 
+func getExpectedResult(res *requests.Response) *requests.Response {
+	jsonResponse, _ := easyjson.Marshal(res)
+	var response requests.Response
+	err := easyjson.Unmarshal(jsonResponse, &response)
+	if err != nil {
+		fmt.Println("unexpected error")
+	}
+	return &response
+}
+
+func getResponse(w *httptest.ResponseRecorder) (*requests.Response, error) {
+	var response requests.Response
+
+	body, _ := io.ReadAll(w.Body)
+	err := easyjson.Unmarshal(body, &response)
+	if err != nil {
+		return nil, fmt.Errorf("cant unmarshal jsone")
+	}
+
+	return &response, nil
+}
+
 func createBody(req requests.FindFilmRequest) io.Reader {
-	jsonReq, _ := json.Marshal(req)
+	jsonReq, _ := easyjson.Marshal(req)
 
 	body := bytes.NewBuffer(jsonReq)
 	return body
 }
 
 func createActorBody(req requests.FindActorRequest) io.Reader {
-	jsonReq, _ := json.Marshal(req)
+	jsonReq, _ := easyjson.Marshal(req)
 
 	body := bytes.NewBuffer(jsonReq)
 	return body
 }
 
 func createRatingBody(req requests.CommentRequest) io.Reader {
-	jsonReq, _ := json.Marshal(req)
+	jsonReq, _ := easyjson.Marshal(req)
 
 	body := bytes.NewBuffer(jsonReq)
 	return body
 }
 
-var resp requests.Response = requests.Response{
-	Status: http.StatusOK,
-	Body:   nil,
-}
-
-var md middleware.ResponseMiddleware = middleware.ResponseMiddleware{
-	Response: &resp,
-	Metrix:   metrics.GetMetrics(),
-}
+var collector *requests.Collector = requests.GetCollector()
 
 func TestFilms(t *testing.T) {
 	expectedGenre := "g1"
@@ -79,7 +92,7 @@ func TestFilms(t *testing.T) {
 		},
 		"Ok": {
 			method: http.MethodGet,
-			result: &requests.Response{Status: http.StatusOK, Body: expectedResponse},
+			result: getExpectedResult(&requests.Response{Status: http.StatusOK, Body: expectedResponse}),
 			params: map[string]string{"collection_id": "1"},
 		},
 	}
@@ -93,7 +106,7 @@ func TestFilms(t *testing.T) {
 	var buff bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buff, nil))
 
-	api := API{core: mockCore, mw: &md, lg: logger}
+	api := API{core: mockCore, lg: logger, ct: collector}
 
 	for _, curr := range testCases {
 		r := httptest.NewRequest(curr.method, "/api/v1/films", nil)
@@ -105,13 +118,17 @@ func TestFilms(t *testing.T) {
 		w := httptest.NewRecorder()
 
 		api.Films(w, r)
-
-		if api.mw.Response.Status != curr.result.Status {
-			t.Errorf("unexpected status: %d, want %d", api.mw.Response.Status, curr.result.Status)
+		response, err := getResponse(w)
+		if err != nil {
+			t.Errorf("unexpected error: %s", err)
 			return
 		}
-		if !reflect.DeepEqual(api.mw.Response.Body, curr.result.Body) {
-			t.Errorf("wanted %v, got %v", curr.result.Body, api.mw.Response.Body)
+		if response.Status != curr.result.Status {
+			t.Errorf("unexpected status: %d, want %d", response.Status, curr.result.Status)
+			return
+		}
+		if !reflect.DeepEqual(response.Body, curr.result.Body) {
+			t.Errorf("wanted %v, got %v", curr.result.Body, response.Body)
 			return
 		}
 	}
@@ -153,12 +170,12 @@ func TestFilm(t *testing.T) {
 		"not found error": {
 			method: http.MethodGet,
 			params: map[string]string{"film_id": "2"},
-			result: &requests.Response{Status: http.StatusNotFound, Body: nil},
+			result: getExpectedResult(&requests.Response{Status: http.StatusNotFound, Body: nil}),
 		},
 		"Ok": {
 			method: http.MethodGet,
 			params: map[string]string{"film_id": "3"},
-			result: &requests.Response{Status: http.StatusOK, Body: expectedResponse},
+			result: getExpectedResult(&requests.Response{Status: http.StatusOK, Body: expectedResponse}),
 		},
 	}
 
@@ -172,7 +189,7 @@ func TestFilm(t *testing.T) {
 	var buff bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buff, nil))
 
-	api := API{core: mockCore, mw: &md, lg: logger}
+	api := API{core: mockCore, lg: logger, ct: collector}
 
 	for _, curr := range testCases {
 		r := httptest.NewRequest(curr.method, "/api/v1/film", nil)
@@ -184,13 +201,17 @@ func TestFilm(t *testing.T) {
 		w := httptest.NewRecorder()
 
 		api.Film(w, r)
-
-		if api.mw.Response.Status != curr.result.Status {
-			t.Errorf("unexpected status: %d, want %d", api.mw.Response.Status, curr.result.Status)
+		response, err := getResponse(w)
+		if err != nil {
+			t.Errorf("unexpected error: %s", err)
 			return
 		}
-		if !reflect.DeepEqual(api.mw.Response.Body, curr.result.Body) {
-			t.Errorf("wanted %v, got %v", curr.result.Body, api.mw.Response.Body)
+		if response.Status != curr.result.Status {
+			t.Errorf("unexpected status: %d, want %d", response.Status, curr.result.Status)
+			return
+		}
+		if !reflect.DeepEqual(response.Body, curr.result.Body) {
+			t.Errorf("wanted %v, got %v", curr.result.Body, response.Body)
 			return
 		}
 	}
@@ -231,7 +252,7 @@ func TestActor(t *testing.T) {
 		"Ok": {
 			method: http.MethodGet,
 			params: map[string]string{"actor_id": "3"},
-			result: &requests.Response{Status: http.StatusOK, Body: expectedResponse},
+			result: getExpectedResult(&requests.Response{Status: http.StatusOK, Body: expectedResponse}),
 		},
 	}
 
@@ -245,7 +266,7 @@ func TestActor(t *testing.T) {
 	var buff bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buff, nil))
 
-	api := API{core: mockCore, mw: &md, lg: logger}
+	api := API{core: mockCore, lg: logger, ct: collector}
 
 	for _, curr := range testCases {
 		r := httptest.NewRequest(curr.method, "/api/v1/actor", nil)
@@ -257,13 +278,17 @@ func TestActor(t *testing.T) {
 		w := httptest.NewRecorder()
 
 		api.Actor(w, r)
-
-		if api.mw.Response.Status != curr.result.Status {
-			t.Errorf("unexpected status: %d, want %d", api.mw.Response.Status, curr.result.Status)
+		response, err := getResponse(w)
+		if err != nil {
+			t.Errorf("unexpected error: %s", err)
 			return
 		}
-		if !reflect.DeepEqual(api.mw.Response.Body, curr.result.Body) {
-			t.Errorf("wanted %v, got %v", curr.result.Body, api.mw.Response.Body)
+		if response.Status != curr.result.Status {
+			t.Errorf("unexpected status: %d, want %d", response.Status, curr.result.Status)
+			return
+		}
+		if !reflect.DeepEqual(response.Body, curr.result.Body) {
+			t.Errorf("wanted %v, got %v", curr.result.Body, response.Body)
 			return
 		}
 	}
@@ -303,7 +328,7 @@ func TestFindFilm(t *testing.T) {
 		},
 		"Ok": {
 			method: http.MethodPost,
-			result: &requests.Response{Status: http.StatusOK, Body: expectedResponse},
+			result: getExpectedResult(&requests.Response{Status: http.StatusOK, Body: expectedResponse}),
 			body:   createBody(requests.FindFilmRequest{Title: "t3", Genres: nil, Actors: nil}),
 		},
 	}
@@ -318,20 +343,24 @@ func TestFindFilm(t *testing.T) {
 	var buff bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buff, nil))
 
-	api := API{core: mockCore, mw: &md, lg: logger}
+	api := API{core: mockCore, lg: logger, ct: collector}
 
 	for _, curr := range testCases {
 		r := httptest.NewRequest(curr.method, "/api/v1/search/film", curr.body)
 		w := httptest.NewRecorder()
 
 		api.FindFilm(w, r)
-
-		if api.mw.Response.Status != curr.result.Status {
-			t.Errorf("unexpected status: %d, want %d", api.mw.Response.Status, curr.result.Status)
+		response, err := getResponse(w)
+		if err != nil {
+			t.Errorf("unexpected error: %s", err)
 			return
 		}
-		if !reflect.DeepEqual(api.mw.Response.Body, curr.result.Body) {
-			t.Errorf("wanted %v, got %v", curr.result.Body, api.mw.Response.Body)
+		if response.Status != curr.result.Status {
+			t.Errorf("unexpected status: %d, want %d", response.Status, curr.result.Status)
+			return
+		}
+		if !reflect.DeepEqual(response.Body, curr.result.Body) {
+			t.Errorf("wanted %v, got %v", curr.result.Body, response.Body)
 			return
 		}
 	}
@@ -370,7 +399,7 @@ func TestFindActor(t *testing.T) {
 		},
 		"Ok": {
 			method: http.MethodPost,
-			result: &requests.Response{Status: http.StatusOK, Body: expectedResponse},
+			result: getExpectedResult(&requests.Response{Status: http.StatusOK, Body: expectedResponse}),
 			body:   createActorBody(requests.FindActorRequest{Name: "n3", Career: nil, Films: nil}),
 		},
 	}
@@ -385,20 +414,24 @@ func TestFindActor(t *testing.T) {
 	var buff bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buff, nil))
 
-	api := API{core: mockCore, mw: &md, lg: logger}
+	api := API{core: mockCore, lg: logger, ct: collector}
 
 	for _, curr := range testCases {
 		r := httptest.NewRequest(curr.method, "/api/v1/search/actor", curr.body)
 		w := httptest.NewRecorder()
 
 		api.FindActor(w, r)
-
-		if api.mw.Response.Status != curr.result.Status {
-			t.Errorf("unexpected status: %d, want %d", api.mw.Response.Status, curr.result.Status)
+		response, err := getResponse(w)
+		if err != nil {
+			t.Errorf("unexpected error: %s", err)
 			return
 		}
-		if !reflect.DeepEqual(api.mw.Response.Body, curr.result.Body) {
-			t.Errorf("wanted %v, got %v", curr.result.Body, api.mw.Response.Body)
+		if response.Status != curr.result.Status {
+			t.Errorf("unexpected status: %d, want %d", response.Status, curr.result.Status)
+			return
+		}
+		if !reflect.DeepEqual(response.Body, curr.result.Body) {
+			t.Errorf("wanted %v, got %v", curr.result.Body, response.Body)
 			return
 		}
 	}
@@ -424,7 +457,7 @@ func TestCalendar(t *testing.T) {
 		},
 		"Ok": {
 			method: http.MethodGet,
-			result: &requests.Response{Status: http.StatusOK, Body: expectedResponse},
+			result: getExpectedResult(&requests.Response{Status: http.StatusOK, Body: expectedResponse}),
 		},
 	}
 
@@ -437,20 +470,24 @@ func TestCalendar(t *testing.T) {
 	var buff bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buff, nil))
 
-	api := API{core: mockCore, mw: &md, lg: logger}
+	api := API{core: mockCore, lg: logger, ct: collector}
 
 	for _, curr := range testCases {
 		r := httptest.NewRequest(curr.method, "/api/v1/calendar", nil)
 		w := httptest.NewRecorder()
 
 		api.Calendar(w, r)
-
-		if api.mw.Response.Status != curr.result.Status {
-			t.Errorf("unexpected status: %d, want %d", api.mw.Response.Status, curr.result.Status)
+		response, err := getResponse(w)
+		if err != nil {
+			t.Errorf("unexpected error: %s", err)
 			return
 		}
-		if !reflect.DeepEqual(api.mw.Response.Body, curr.result.Body) {
-			t.Errorf("wanted %v, got %v", curr.result.Body, api.mw.Response.Body)
+		if response.Status != curr.result.Status {
+			t.Errorf("unexpected status: %d, want %d", response.Status, curr.result.Status)
+			return
+		}
+		if !reflect.DeepEqual(response.Body, curr.result.Body) {
+			t.Errorf("wanted %v, got %v", curr.result.Body, response.Body)
 			return
 		}
 	}
@@ -498,7 +535,7 @@ func TestFavoriteFilmsAdd(t *testing.T) {
 	var buff bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buff, nil))
 
-	api := API{core: mockCore, mw: &md, lg: logger}
+	api := API{core: mockCore, lg: logger, ct: collector}
 
 	for _, curr := range testCases {
 		r := httptest.NewRequest(curr.method, "/api/v1/favorite/film/add", nil)
@@ -511,13 +548,17 @@ func TestFavoriteFilmsAdd(t *testing.T) {
 		w := httptest.NewRecorder()
 
 		api.FavoriteFilmsAdd(w, newReq)
-
-		if api.mw.Response.Status != curr.result.Status {
-			t.Errorf("unexpected status: %d, want %d", api.mw.Response.Status, curr.result.Status)
+		response, err := getResponse(w)
+		if err != nil {
+			t.Errorf("unexpected error: %s", err)
 			return
 		}
-		if !reflect.DeepEqual(api.mw.Response.Body, curr.result.Body) {
-			t.Errorf("wanted %v, got %v", curr.result.Body, api.mw.Response.Body)
+		if response.Status != curr.result.Status {
+			t.Errorf("unexpected status: %d, want %d", response.Status, curr.result.Status)
+			return
+		}
+		if !reflect.DeepEqual(response.Body, curr.result.Body) {
+			t.Errorf("wanted %v, got %v", curr.result.Body, response.Body)
 			return
 		}
 	}
@@ -559,7 +600,7 @@ func TestFavoriteFilmsRemove(t *testing.T) {
 	var buff bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buff, nil))
 
-	api := API{core: mockCore, mw: &md, lg: logger}
+	api := API{core: mockCore, lg: logger, ct: collector}
 
 	for _, curr := range testCases {
 		r := httptest.NewRequest(curr.method, "/api/v1/favorite/film/remove", nil)
@@ -572,13 +613,17 @@ func TestFavoriteFilmsRemove(t *testing.T) {
 		w := httptest.NewRecorder()
 
 		api.FavoriteFilmsRemove(w, newReq)
-
-		if api.mw.Response.Status != curr.result.Status {
-			t.Errorf("unexpected status: %d, want %d", api.mw.Response.Status, curr.result.Status)
+		response, err := getResponse(w)
+		if err != nil {
+			t.Errorf("unexpected error: %s", err)
 			return
 		}
-		if !reflect.DeepEqual(api.mw.Response.Body, curr.result.Body) {
-			t.Errorf("wanted %v, got %v", curr.result.Body, api.mw.Response.Body)
+		if response.Status != curr.result.Status {
+			t.Errorf("unexpected status: %d, want %d", response.Status, curr.result.Status)
+			return
+		}
+		if !reflect.DeepEqual(response.Body, curr.result.Body) {
+			t.Errorf("wanted %v, got %v", curr.result.Body, response.Body)
 			return
 		}
 	}
@@ -605,7 +650,7 @@ func TestFavoriteFilms(t *testing.T) {
 		"Ok": {
 			method: http.MethodGet,
 			params: map[string]string{"page": "1", "page_size": "8"},
-			result: &requests.Response{Status: http.StatusOK, Body: films},
+			result: getExpectedResult(&requests.Response{Status: http.StatusOK, Body: films}),
 		},
 	}
 
@@ -618,7 +663,7 @@ func TestFavoriteFilms(t *testing.T) {
 	var buff bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buff, nil))
 
-	api := API{core: mockCore, mw: &md, lg: logger}
+	api := API{core: mockCore, lg: logger, ct: collector}
 
 	for _, curr := range testCases {
 		r := httptest.NewRequest(curr.method, "/api/v1/favorite/films", nil)
@@ -631,13 +676,17 @@ func TestFavoriteFilms(t *testing.T) {
 		w := httptest.NewRecorder()
 
 		api.FavoriteFilms(w, newReq)
-
-		if api.mw.Response.Status != curr.result.Status {
-			t.Errorf("unexpected status: %d, want %d", api.mw.Response.Status, curr.result.Status)
+		response, err := getResponse(w)
+		if err != nil {
+			t.Errorf("unexpected error: %s", err)
 			return
 		}
-		if !reflect.DeepEqual(api.mw.Response.Body, curr.result.Body) {
-			t.Errorf("wanted %v, got %v", curr.result.Body, api.mw.Response.Body)
+		if response.Status != curr.result.Status {
+			t.Errorf("unexpected status: %d, want %d", response.Status, curr.result.Status)
+			return
+		}
+		if !reflect.DeepEqual(response.Body, curr.result.Body) {
+			t.Errorf("wanted %v, got %v", curr.result.Body, response.Body)
 			return
 		}
 	}
@@ -685,7 +734,7 @@ func TestFavoriteActorsAdd(t *testing.T) {
 	var buff bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buff, nil))
 
-	api := API{core: mockCore, mw: &md, lg: logger}
+	api := API{core: mockCore, lg: logger, ct: collector}
 
 	for _, curr := range testCases {
 		r := httptest.NewRequest(curr.method, "/api/v1/favorite/actor/add", nil)
@@ -698,13 +747,17 @@ func TestFavoriteActorsAdd(t *testing.T) {
 		w := httptest.NewRecorder()
 
 		api.FavoriteActorsAdd(w, newReq)
-
-		if api.mw.Response.Status != curr.result.Status {
-			t.Errorf("unexpected status: %d, want %d", api.mw.Response.Status, curr.result.Status)
+		response, err := getResponse(w)
+		if err != nil {
+			t.Errorf("unexpected error: %s", err)
 			return
 		}
-		if !reflect.DeepEqual(api.mw.Response.Body, curr.result.Body) {
-			t.Errorf("wanted %v, got %v", curr.result.Body, api.mw.Response.Body)
+		if response.Status != curr.result.Status {
+			t.Errorf("unexpected status: %d, want %d", response.Status, curr.result.Status)
+			return
+		}
+		if !reflect.DeepEqual(response.Body, curr.result.Body) {
+			t.Errorf("wanted %v, got %v", curr.result.Body, response.Body)
 			return
 		}
 	}
@@ -746,7 +799,7 @@ func TestFavoriteActorsRemove(t *testing.T) {
 	var buff bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buff, nil))
 
-	api := API{core: mockCore, mw: &md, lg: logger}
+	api := API{core: mockCore, lg: logger, ct: collector}
 
 	for _, curr := range testCases {
 		r := httptest.NewRequest(curr.method, "/api/v1/favorite/actor/remove", nil)
@@ -759,13 +812,17 @@ func TestFavoriteActorsRemove(t *testing.T) {
 		w := httptest.NewRecorder()
 
 		api.FavoriteActorsRemove(w, newReq)
-
-		if api.mw.Response.Status != curr.result.Status {
-			t.Errorf("unexpected status: %d, want %d", api.mw.Response.Status, curr.result.Status)
+		response, err := getResponse(w)
+		if err != nil {
+			t.Errorf("unexpected error: %s", err)
 			return
 		}
-		if !reflect.DeepEqual(api.mw.Response.Body, curr.result.Body) {
-			t.Errorf("wanted %v, got %v", curr.result.Body, api.mw.Response.Body)
+		if response.Status != curr.result.Status {
+			t.Errorf("unexpected status: %d, want %d", response.Status, curr.result.Status)
+			return
+		}
+		if !reflect.DeepEqual(response.Body, curr.result.Body) {
+			t.Errorf("wanted %v, got %v", curr.result.Body, response.Body)
 			return
 		}
 	}
@@ -793,7 +850,7 @@ func TestFavoriteActors(t *testing.T) {
 		"Ok": {
 			method: http.MethodGet,
 			params: map[string]string{"page": "1", "page_size": "8"},
-			result: &requests.Response{Status: http.StatusOK, Body: response},
+			result: getExpectedResult(&requests.Response{Status: http.StatusOK, Body: response}),
 		},
 	}
 
@@ -806,7 +863,7 @@ func TestFavoriteActors(t *testing.T) {
 	var buff bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buff, nil))
 
-	api := API{core: mockCore, mw: &md, lg: logger}
+	api := API{core: mockCore, lg: logger, ct: collector}
 
 	for _, curr := range testCases {
 		r := httptest.NewRequest(curr.method, "/api/v1/favorite/actors", nil)
@@ -819,13 +876,17 @@ func TestFavoriteActors(t *testing.T) {
 		w := httptest.NewRecorder()
 
 		api.FavoriteActors(w, newReq)
-
-		if api.mw.Response.Status != curr.result.Status {
-			t.Errorf("unexpected status: %d, want %d", api.mw.Response.Status, curr.result.Status)
+		response, err := getResponse(w)
+		if err != nil {
+			t.Errorf("unexpected error: %s", err)
 			return
 		}
-		if !reflect.DeepEqual(api.mw.Response.Body, curr.result.Body) {
-			t.Errorf("wanted %v, got %v", curr.result.Body, api.mw.Response.Body)
+		if response.Status != curr.result.Status {
+			t.Errorf("unexpected status: %d, want %d", response.Status, curr.result.Status)
+			return
+		}
+		if !reflect.DeepEqual(response.Body, curr.result.Body) {
+			t.Errorf("wanted %v, got %v", curr.result.Body, response.Body)
 			return
 		}
 	}
@@ -873,7 +934,7 @@ func TestAddRating(t *testing.T) {
 	var buff bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buff, nil))
 
-	api := API{core: mockCore, mw: &md, lg: logger}
+	api := API{core: mockCore, lg: logger, ct: collector}
 
 	for _, curr := range testCases {
 		r := httptest.NewRequest(curr.method, "/api/v1/rating/add", curr.body)
@@ -882,13 +943,17 @@ func TestAddRating(t *testing.T) {
 		w := httptest.NewRecorder()
 
 		api.AddRating(w, newReq)
-
-		if api.mw.Response.Status != curr.result.Status {
-			t.Errorf("unexpected status: %d, want %d", api.mw.Response.Status, curr.result.Status)
+		response, err := getResponse(w)
+		if err != nil {
+			t.Errorf("unexpected error: %s", err)
 			return
 		}
-		if !reflect.DeepEqual(api.mw.Response.Body, curr.result.Body) {
-			t.Errorf("wanted %v, got %v", curr.result.Body, api.mw.Response.Body)
+		if response.Status != curr.result.Status {
+			t.Errorf("unexpected status: %d, want %d", response.Status, curr.result.Status)
+			return
+		}
+		if !reflect.DeepEqual(response.Body, curr.result.Body) {
+			t.Errorf("wanted %v, got %v", curr.result.Body, response.Body)
 			return
 		}
 	}

@@ -31,6 +31,8 @@ type ICore interface {
 	CreateCsrfToken(ctx context.Context) (string, error)
 	CheckPassword(login string, password string) (bool, error)
 	GetUserRole(login string) (string, error)
+	Subscribe(userName string) (bool, error)
+	IsSubscribed(userName string) (bool, error)
 }
 
 type Core struct {
@@ -249,4 +251,30 @@ func (core *Core) GetUserRole(login string) (string, error) {
 	}
 
 	return role, nil
+}
+
+func (core *Core) Subscribe(userName string) (bool, error) {
+	isSubcribed, err := core.users.IsSubscribed(userName)
+	if err != nil {
+		core.lg.Error("is subsribed error", "err", err.Error())
+		return false, fmt.Errorf("")
+	}
+
+	err = core.users.ChangeSubsribe(userName, !isSubcribed)
+	if err != nil {
+		core.lg.Error("change subsribe error", "err", err.Error())
+		return false, fmt.Errorf("")
+	}
+
+	return !isSubcribed, nil
+}
+
+func (core *Core) IsSubscribed(userName string) (bool, error) {
+	isSubcribed, err := core.users.IsSubscribed(userName)
+	if err != nil {
+		core.lg.Error("is subsribed error", "err", err.Error())
+		return false, fmt.Errorf("")
+	}
+
+	return isSubcribed, nil
 }

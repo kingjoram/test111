@@ -1,7 +1,6 @@
 package delivery
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -11,9 +10,8 @@ import (
 	"time"
 
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/authorization/usecase"
-	"github.com/go-park-mail-ru/2023_2_Vkladyshi/metrics"
-	"github.com/go-park-mail-ru/2023_2_Vkladyshi/middleware"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/pkg/requests"
+	"github.com/mailru/easyjson"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -30,8 +28,8 @@ type IApi interface {
 type API struct {
 	core usecase.ICore
 	lg   *slog.Logger
+	ct   *requests.Collector
 	mx   *http.ServeMux
-	mw   *middleware.ResponseMiddleware
 }
 
 func (a *API) ListenAndServe() error {
@@ -45,44 +43,41 @@ func (a *API) ListenAndServe() error {
 }
 
 func GetApi(c *usecase.Core, l *slog.Logger) *API {
-    resp := &requests.Response{
-        Status: http.StatusOK,
-        Body:   nil,
-    }
-    middleware := &middleware.ResponseMiddleware{
-        Response: resp,
-		Metrix: metrics.GetMetrics(),
-    }
-    api := &API{
-        core: c,
-        lg:   l.With("module", "api"),
-        mx:   http.NewServeMux(),
-        mw:   middleware,
-    }
+	api := &API{
+		core: c,
+		lg:   l.With("module", "api"),
+		ct:   requests.GetCollector(),
+		mx:   http.NewServeMux(),
+	}
 
 	api.mx.Handle("/metrics", promhttp.Handler())
-	api.mx.Handle("/signin", api.mw.GetResponse(http.HandlerFunc(api.Signin), l))
-	api.mx.Handle("/signup", api.mw.GetResponse(http.HandlerFunc(api.Signup), l))
-	api.mx.Handle("/logout", api.mw.GetResponse(http.HandlerFunc(api.LogoutSession), l))
-	api.mx.Handle("/authcheck", api.mw.GetResponse(http.HandlerFunc(api.AuthAccept), l))
-	api.mx.Handle("/api/v1/csrf", api.mw.GetResponse(http.HandlerFunc(api.GetCsrfToken), l))
-	api.mx.Handle("/api/v1/settings", api.mw.GetResponse(http.HandlerFunc(api.Profile), l))
+	api.mx.HandleFunc("/signin", api.Signin)
+	api.mx.HandleFunc("/signup", api.Signup)
+	api.mx.HandleFunc("/logout", api.LogoutSession)
+	api.mx.HandleFunc("/authcheck", api.AuthAccept)
+	api.mx.HandleFunc("/api/v1/csrf", api.GetCsrfToken)
+	api.mx.HandleFunc("/api/v1/settings", api.Profile)
+	api.mx.HandleFunc("/api/v1/subcribePush", api.SubcribePush)
 
 	return api
 }
 
 func (a *API) LogoutSession(w http.ResponseWriter, r *http.Request) {
-	a.mw.Response = &requests.Response{Status: http.StatusOK, Body: nil}
+	response := requests.Response{Status: http.StatusOK, Body: nil}
+
+	start := time.Now()
 
 	session, err := r.Cookie("session_id")
 	if err == http.ErrNoCookie {
-		a.mw.Response.Status = http.StatusUnauthorized
+		response.Status = http.StatusUnauthorized
+		a.ct.SendResponse(w, r, response, a.lg, start)
 		return
 	}
 
 	found, _ := a.core.FindActiveSession(r.Context(), session.Value)
 	if !found {
-		a.mw.Response.Status = http.StatusUnauthorized
+		response.Status = http.StatusUnauthorized
+		a.ct.SendResponse(w, r, response, a.lg, start)
 		return
 	} else {
 		err := a.core.KillSession(r.Context(), session.Value)
@@ -92,10 +87,13 @@ func (a *API) LogoutSession(w http.ResponseWriter, r *http.Request) {
 		session.Expires = time.Now().AddDate(0, 0, -1)
 		http.SetCookie(w, session)
 	}
+	a.ct.SendResponse(w, r, response, a.lg, start)
 }
 
 func (a *API) AuthAccept(w http.ResponseWriter, r *http.Request) {
-	a.mw.Response = &requests.Response{Status: http.StatusOK, Body: nil}
+	response := requests.Response{Status: http.StatusOK, Body: nil}
+
+	start := time.Now()
 	var authorized bool
 
 	session, err := r.Cookie("session_id")
@@ -104,31 +102,38 @@ func (a *API) AuthAccept(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !authorized {
-		a.mw.Response.Status = http.StatusUnauthorized
+		response.Status = http.StatusUnauthorized
+		a.ct.SendResponse(w, r, response, a.lg, start)
 		return
 	}
 	login, err := a.core.GetUserName(r.Context(), session.Value)
 	if err != nil {
 		a.lg.Error("auth accept error", "err", err.Error())
-		a.mw.Response.Status = http.StatusInternalServerError
+		response.Status = http.StatusInternalServerError
+		a.ct.SendResponse(w, r, response, a.lg, start)
 		return
 	}
 
 	role, err := a.core.GetUserRole(login)
 	if err != nil {
 		a.lg.Error("auth accept error", "err", err.Error())
-		a.mw.Response.Status = http.StatusInternalServerError
+		response.Status = http.StatusInternalServerError
+		a.ct.SendResponse(w, r, response, a.lg, start)
 		return
 	}
 
 	authCheckResponse := requests.AuthCheckResponse{Login: login, Role: role}
-	a.mw.Response.Body = authCheckResponse
+	response.Body = authCheckResponse
+	a.ct.SendResponse(w, r, response, a.lg, start)
 }
 
 func (a *API) Signin(w http.ResponseWriter, r *http.Request) {
-	a.mw.Response = &requests.Response{Status: http.StatusOK, Body: nil}
+	response := requests.Response{Status: http.StatusOK, Body: nil}
+
+	start := time.Now()
 	if r.Method != http.MethodPost {
-		a.mw.Response.Status = http.StatusMethodNotAllowed
+		response.Status = http.StatusMethodNotAllowed
+		a.ct.SendResponse(w, r, response, a.lg, start)
 		return
 	}
 
@@ -137,7 +142,8 @@ func (a *API) Signin(w http.ResponseWriter, r *http.Request) {
 	_, err := a.core.CheckCsrfToken(r.Context(), csrfToken)
 	if err != nil {
 		w.Header().Set("X-CSRF-Token", "null")
-		a.mw.Response.Status = http.StatusPreconditionFailed
+		response.Status = http.StatusPreconditionFailed
+		a.ct.SendResponse(w, r, response, a.lg, start)
 		return
 	}
 
@@ -145,23 +151,27 @@ func (a *API) Signin(w http.ResponseWriter, r *http.Request) {
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		a.mw.Response.Status = http.StatusBadRequest
+		response.Status = http.StatusBadRequest
+		a.ct.SendResponse(w, r, response, a.lg, start)
 		return
 	}
 
-	if err = json.Unmarshal(body, &request); err != nil {
-		a.mw.Response.Status = http.StatusBadRequest
+	if err = easyjson.Unmarshal(body, &request); err != nil {
+		response.Status = http.StatusBadRequest
+		a.ct.SendResponse(w, r, response, a.lg, start)
 		return
 	}
 
 	user, found, err := a.core.FindUserAccount(request.Login, request.Password)
 	if err != nil {
 		a.lg.Error("Signin error", "err", err.Error())
-		a.mw.Response.Status = http.StatusInternalServerError
+		response.Status = http.StatusInternalServerError
+		a.ct.SendResponse(w, r, response, a.lg, start)
 		return
 	}
 	if !found {
-		a.mw.Response.Status = http.StatusUnauthorized
+		response.Status = http.StatusUnauthorized
+		a.ct.SendResponse(w, r, response, a.lg, start)
 		return
 	} else {
 		sid, session, _ := a.core.CreateSession(r.Context(), user.Login)
@@ -174,12 +184,16 @@ func (a *API) Signin(w http.ResponseWriter, r *http.Request) {
 		}
 		http.SetCookie(w, cookie)
 	}
+	a.ct.SendResponse(w, r, response, a.lg, start)
 }
 
 func (a *API) Signup(w http.ResponseWriter, r *http.Request) {
-	a.mw.Response = &requests.Response{Status: http.StatusOK, Body: nil}
+	response := requests.Response{Status: http.StatusOK, Body: nil}
+
+	start := time.Now()
 	if r.Method != http.MethodPost {
-		a.mw.Response.Status = http.StatusMethodNotAllowed
+		response.Status = http.StatusMethodNotAllowed
+		a.ct.SendResponse(w, r, response, a.lg, start)
 		return
 	}
 
@@ -188,7 +202,8 @@ func (a *API) Signup(w http.ResponseWriter, r *http.Request) {
 	_, err := a.core.CheckCsrfToken(r.Context(), csrfToken)
 	if err != nil {
 		w.Header().Set("X-CSRF-Token", "null")
-		a.mw.Response.Status = http.StatusPreconditionFailed
+		response.Status = http.StatusPreconditionFailed
+		a.ct.SendResponse(w, r, response, a.lg, start)
 		return
 	}
 
@@ -197,72 +212,86 @@ func (a *API) Signup(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		a.lg.Error("Signup error", "err", err.Error())
-		a.mw.Response.Status = http.StatusBadRequest
+		response.Status = http.StatusBadRequest
+		a.ct.SendResponse(w, r, response, a.lg, start)
 		return
 	}
 
-	err = json.Unmarshal(body, &request)
+	err = easyjson.Unmarshal(body, &request)
 	if err != nil {
 		a.lg.Error("Signup error", "err", err.Error())
-		a.mw.Response.Status = http.StatusBadRequest
+		response.Status = http.StatusBadRequest
+		a.ct.SendResponse(w, r, response, a.lg, start)
 		return
 	}
 
 	found, err := a.core.FindUserByLogin(request.Login)
 	if err != nil {
 		a.lg.Error("Signup error", "err", err.Error())
-		a.mw.Response.Status = http.StatusInternalServerError
+		response.Status = http.StatusInternalServerError
+		a.ct.SendResponse(w, r, response, a.lg, start)
 		return
 	}
 
 	if found {
-		a.mw.Response.Status = http.StatusConflict
+		response.Status = http.StatusConflict
+		a.ct.SendResponse(w, r, response, a.lg, start)
 		return
 	}
 
 	err = a.core.CreateUserAccount(request.Login, request.Password, request.Name, request.BirthDate, request.Email)
 	if err == usecase.InvalideEmail {
 		a.lg.Error("create user error", "err", err.Error())
-		a.mw.Response.Status = http.StatusBadRequest
+		response.Status = http.StatusBadRequest
 	}
 	if err != nil {
 		a.lg.Error("failed to create user account", "err", err.Error())
-		a.mw.Response.Status = http.StatusBadRequest
+		response.Status = http.StatusBadRequest
 	}
+	a.ct.SendResponse(w, r, response, a.lg, start)
 }
 
 func (a *API) GetCsrfToken(w http.ResponseWriter, r *http.Request) {
-	a.mw.Response = &requests.Response{Status: http.StatusOK, Body: nil}
+	response := requests.Response{Status: http.StatusOK, Body: nil}
+
+	start := time.Now()
 
 	csrfToken := r.Header.Get("x-csrf-token")
 
 	found, err := a.core.CheckCsrfToken(r.Context(), csrfToken)
 	if err != nil {
 		w.Header().Set("X-CSRF-Token", "null")
-		a.mw.Response.Status = http.StatusInternalServerError
+		response.Status = http.StatusInternalServerError
+		a.ct.SendResponse(w, r, response, a.lg, start)
 		return
 	}
 	if csrfToken != "" && found {
 		w.Header().Set("X-CSRF-Token", csrfToken)
+		a.ct.SendResponse(w, r, response, a.lg, start)
 		return
 	}
 
 	token, err := a.core.CreateCsrfToken(r.Context())
 	if err != nil {
 		w.Header().Set("X-CSRF-Token", "null")
-		a.mw.Response.Status = http.StatusInternalServerError
+		response.Status = http.StatusInternalServerError
+		a.ct.SendResponse(w, r, response, a.lg, start)
 		return
 	}
 
 	w.Header().Set("X-CSRF-Token", token)
+	a.ct.SendResponse(w, r, response, a.lg, start)
 }
 
 func (a *API) Profile(w http.ResponseWriter, r *http.Request) {
-	a.mw.Response = &requests.Response{Status: http.StatusOK, Body: nil}
+	response := requests.Response{Status: http.StatusOK, Body: nil}
+
+	start := time.Now()
 	if r.Method == http.MethodGet {
 		session, err := r.Cookie("session_id")
 		if err == http.ErrNoCookie {
-			a.mw.Response.Status = http.StatusUnauthorized
+			response.Status = http.StatusUnauthorized
+			a.ct.SendResponse(w, r, response, a.lg, start)
 			return
 		}
 
@@ -273,7 +302,8 @@ func (a *API) Profile(w http.ResponseWriter, r *http.Request) {
 
 		profile, err := a.core.GetUserProfile(login)
 		if err != nil {
-			a.mw.Response.Status = http.StatusInternalServerError
+			response.Status = http.StatusInternalServerError
+			a.ct.SendResponse(w, r, response, a.lg, start)
 			return
 		}
 
@@ -285,17 +315,20 @@ func (a *API) Profile(w http.ResponseWriter, r *http.Request) {
 			BirthDate: profile.Birthdate,
 		}
 
-		a.mw.Response.Body = profileResponse
+		response.Body = profileResponse
+		a.ct.SendResponse(w, r, response, a.lg, start)
 		return
 	}
 
 	if r.Method != http.MethodPost {
-		a.mw.Response.Status = http.StatusUnauthorized
+		response.Status = http.StatusUnauthorized
+		a.ct.SendResponse(w, r, response, a.lg, start)
 		return
 	}
 	session, err := r.Cookie("session_id")
 	if err == http.ErrNoCookie {
-		a.mw.Response.Status = http.StatusUnauthorized
+		response.Status = http.StatusUnauthorized
+		a.ct.SendResponse(w, r, response, a.lg, start)
 		return
 	}
 
@@ -307,7 +340,8 @@ func (a *API) Profile(w http.ResponseWriter, r *http.Request) {
 	err1 := r.ParseMultipartForm(10 << 20)
 	if err1 != nil {
 		a.lg.Error("Post profile error", "err", err.Error())
-		a.mw.Response.Status = http.StatusBadRequest
+		response.Status = http.StatusBadRequest
+		a.ct.SendResponse(w, r, response, a.lg, start)
 		return
 	}
 
@@ -318,14 +352,16 @@ func (a *API) Profile(w http.ResponseWriter, r *http.Request) {
 	photo, handler, err := r.FormFile("photo")
 	if err != nil && !errors.Is(err, http.ErrMissingFile) {
 		a.lg.Error("Post profile error", "err", err.Error())
-		a.mw.Response.Status = http.StatusInternalServerError
+		response.Status = http.StatusInternalServerError
+		a.ct.SendResponse(w, r, response, a.lg, start)
 		return
 	}
 
 	isRepeatPassword, err := a.core.CheckPassword(login, password)
 
 	if isRepeatPassword {
-		a.mw.Response.Status = http.StatusConflict
+		response.Status = http.StatusConflict
+		a.ct.SendResponse(w, r, response, a.lg, start)
 		return
 	}
 
@@ -336,9 +372,11 @@ func (a *API) Profile(w http.ResponseWriter, r *http.Request) {
 		err = a.core.EditProfile(prevLogin, login, password, email, birthDate, filename)
 		if err != nil {
 			a.lg.Error("Post profile error", "err", err.Error())
-			a.mw.Response.Status = http.StatusInternalServerError
+			response.Status = http.StatusInternalServerError
+			a.ct.SendResponse(w, r, response, a.lg, start)
 			return
 		}
+		a.ct.SendResponse(w, r, response, a.lg, start)
 		return
 	}
 
@@ -346,14 +384,16 @@ func (a *API) Profile(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil && handler != nil && photo != nil {
 		a.lg.Error("Post profile error", "err", err.Error())
-		a.mw.Response.Status = http.StatusBadRequest
+		response.Status = http.StatusBadRequest
+		a.ct.SendResponse(w, r, response, a.lg, start)
 		return
 	}
 
 	filePhoto, err := os.OpenFile("/home/ubuntu/frontend-project"+filename, os.O_WRONLY|os.O_CREATE, 0666)
 	if err != nil {
 		a.lg.Error("Post profile error", "err", err.Error())
-		a.mw.Response.Status = http.StatusInternalServerError
+		response.Status = http.StatusInternalServerError
+		a.ct.SendResponse(w, r, response, a.lg, start)
 		return
 	}
 	defer filePhoto.Close()
@@ -361,14 +401,91 @@ func (a *API) Profile(w http.ResponseWriter, r *http.Request) {
 	_, err = io.Copy(filePhoto, photo)
 	if err != nil {
 		a.lg.Error("Post profile error", "err", err.Error())
-		a.mw.Response.Status = http.StatusInternalServerError
+		response.Status = http.StatusInternalServerError
+		a.ct.SendResponse(w, r, response, a.lg, start)
 		return
 	}
 
 	err = a.core.EditProfile(prevLogin, login, password, email, birthDate, filename)
 	if err != nil {
 		a.lg.Error("Post profile error", "err", err.Error())
-		a.mw.Response.Status = http.StatusInternalServerError
+		response.Status = http.StatusInternalServerError
+		a.ct.SendResponse(w, r, response, a.lg, start)
 		return
 	}
+	a.ct.SendResponse(w, r, response, a.lg, start)
+}
+
+func (a *API) SubcribePush(w http.ResponseWriter, r *http.Request) {
+	response := requests.Response{Status: http.StatusOK, Body: nil}
+	start := time.Now()
+	if r.Method != http.MethodGet {
+		response.Status = http.StatusMethodNotAllowed
+		a.ct.SendResponse(w, r, response, a.lg, start)
+		return
+	}
+
+	session, err := r.Cookie("session_id")
+	if errors.Is(err, http.ErrNoCookie) {
+		response.Status = http.StatusUnauthorized
+		a.ct.SendResponse(w, r, response, a.lg, start)
+		return
+	}
+
+	userName, err := a.core.GetUserName(r.Context(), session.Value)
+	if err != nil {
+		a.lg.Error("subcribe push error", "err", err.Error())
+		response.Status = http.StatusInternalServerError
+		a.ct.SendResponse(w, r, response, a.lg, start)
+		return
+	}
+
+	isSubcribed, err := a.core.Subscribe(userName)
+	if err != nil {
+		a.lg.Error("subcribe push error", "err", err.Error())
+		response.Status = http.StatusInternalServerError
+		a.ct.SendResponse(w, r, response, a.lg, start)
+		return
+	}
+
+	subResponse := requests.SubcribeResponse{IsSubcribed: isSubcribed}
+	response.Body = subResponse
+	a.ct.SendResponse(w, r, response, a.lg, start)
+}
+
+func (a *API) IsSubcribed(w http.ResponseWriter, r *http.Request) {
+	response := requests.Response{Status: http.StatusOK, Body: nil}
+	start := time.Now()
+	if r.Method != http.MethodGet {
+		response.Status = http.StatusMethodNotAllowed
+		a.ct.SendResponse(w, r, response, a.lg, start)
+		return
+	}
+
+	session, err := r.Cookie("session_id")
+	if errors.Is(err, http.ErrNoCookie) {
+		response.Status = http.StatusUnauthorized
+		a.ct.SendResponse(w, r, response, a.lg, start)
+		return
+	}
+
+	userName, err := a.core.GetUserName(r.Context(), session.Value)
+	if err != nil {
+		a.lg.Error("is subcribed error", "err", err.Error())
+		response.Status = http.StatusInternalServerError
+		a.ct.SendResponse(w, r, response, a.lg, start)
+		return
+	}
+
+	isSubcribed, err := a.core.IsSubscribed(userName)
+	if err != nil {
+		a.lg.Error("is subcribed error", "err", err.Error())
+		response.Status = http.StatusInternalServerError
+		a.ct.SendResponse(w, r, response, a.lg, start)
+		return
+	}
+
+	subResponse := requests.SubcribeResponse{IsSubcribed: isSubcribed}
+	response.Body = subResponse
+	a.ct.SendResponse(w, r, response, a.lg, start)
 }

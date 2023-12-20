@@ -1,5 +1,6 @@
 package models
 
+//easyjson:json
 type FilmItem struct {
 	Id          uint64  `json:"id"`
 	Title       string  `json:"title"`
