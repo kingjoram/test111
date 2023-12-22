@@ -92,18 +92,18 @@ func (mr *MockIFilmsRepoMockRecorder) CheckFilm(userId, filmId interface{}) *gom
 }
 
 // FindFilm mocks base method.
-func (m *MockIFilmsRepo) FindFilm(title, dateFrom, dateTo string, ratingFrom, ratingTo float32, mpaa string, genres []uint32, actors []string) ([]models.FilmItem, error) {
+func (m *MockIFilmsRepo) FindFilm(title, dateFrom, dateTo string, ratingFrom, ratingTo float32, mpaa string, genres []uint32, actors []string, first, limit uint64) ([]models.FilmItem, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindFilm", title, dateFrom, dateTo, ratingFrom, ratingTo, mpaa, genres, actors)
+	ret := m.ctrl.Call(m, "FindFilm", title, dateFrom, dateTo, ratingFrom, ratingTo, mpaa, genres, actors, first, limit)
 	ret0, _ := ret[0].([]models.FilmItem)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // FindFilm indicates an expected call of FindFilm.
-func (mr *MockIFilmsRepoMockRecorder) FindFilm(title, dateFrom, dateTo, ratingFrom, ratingTo, mpaa, genres, actors interface{}) *gomock.Call {
+func (mr *MockIFilmsRepoMockRecorder) FindFilm(title, dateFrom, dateTo, ratingFrom, ratingTo, mpaa, genres, actors, first, limit interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindFilm", reflect.TypeOf((*MockIFilmsRepo)(nil).FindFilm), title, dateFrom, dateTo, ratingFrom, ratingTo, mpaa, genres, actors)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindFilm", reflect.TypeOf((*MockIFilmsRepo)(nil).FindFilm), title, dateFrom, dateTo, ratingFrom, ratingTo, mpaa, genres, actors, first, limit)
 }
 
 // GetFavoriteFilms mocks base method.

@@ -259,17 +259,17 @@ func TestFindFilm(t *testing.T) {
 		rows = rows.AddRow(item.Title, item.Id, item.Poster, expectRating[0])
 	}
 
-	selectStr := "SELECT DISTINCT film.title, film.id, film.poster, AVG(users_comment.rating) FROM film JOIN films_genre ON film.id = films_genre.id_film JOIN users_comment ON film.id = users_comment.id_film JOIN person_in_film ON film.id = person_in_film.id_film JOIN crew ON person_in_film.id_person = crew.id GROUP BY film.title, film.id HAVING AVG(users_comment.rating) >= $1 AND AVG(users_comment.rating) <= $2 ORDER BY film.title"
+	selectStr := "SELECT DISTINCT film.title, film.id, film.poster, AVG(users_comment.rating) FROM film JOIN films_genre ON film.id = films_genre.id_film LEFT JOIN users_comment ON film.id = users_comment.id_film JOIN person_in_film ON film.id = person_in_film.id_film JOIN crew ON person_in_film.id_person = crew.id GROUP BY film.title, film.id HAVING (AVG(users_comment.rating) >= $1 AND AVG(users_comment.rating) <= $2) OR AVG(users_comment.rating) IS NULL ORDER BY film.title LIMIT $3 OFFSET $4"
 	mock.ExpectQuery(
 		regexp.QuoteMeta(selectStr)).
-		WithArgs(float32(0), float32(10)).
+		WithArgs(float32(0), float32(10), uint64(1), uint64(0)).
 		WillReturnRows(rows)
 
 	repo := &RepoPostgre{
 		db: db,
 	}
 
-	film, err := repo.FindFilm("", "", "", float32(0), float32(10), "", []uint32{}, []string{""})
+	film, err := repo.FindFilm("", "", "", float32(0), float32(10), "", []uint32{}, []string{""}, 0, 1)
 	if err != nil {
 		t.Errorf("GetFilm error: %s", err)
 	}
@@ -285,10 +285,10 @@ func TestFindFilm(t *testing.T) {
 
 	mock.ExpectQuery(
 		regexp.QuoteMeta(selectStr)).
-		WithArgs(float32(0), float32(10)).
+		WithArgs(float32(0), float32(10), uint64(0), uint64(0)).
 		WillReturnError(fmt.Errorf("db_error"))
 
-	film, err = repo.FindFilm("", "", "", float32(0), float32(10), "", []uint32{0}, []string{""})
+	film, err = repo.FindFilm("", "", "", float32(0), float32(10), "", []uint32{0}, []string{""}, 0, 0)
 	if err == mock.ExpectationsWereMet() {
 		t.Errorf("there were unfulfilled expectations: %s", err)
 		return

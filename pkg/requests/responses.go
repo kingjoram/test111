@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-park-mail-ru/2023_2_Vkladyshi/metrics"
+	"github.com/go-park-mail-ru/2023_2_Vkladyshi/pkg/metrics"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/pkg/models"
 	easyjson "github.com/mailru/easyjson"
 )

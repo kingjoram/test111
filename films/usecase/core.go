@@ -33,8 +33,8 @@ type ICore interface {
 	GetActorInfo(actorId uint64) (*requests.ActorResponse, error)
 	GetActorsCareer(actorId uint64) ([]models.ProfessionItem, error)
 	GetGenre(genreId uint64) (string, error)
-	FindFilm(title string, dateFrom string, dateTo string,
-		ratingFrom float32, ratingTo float32, mpaa string, genres []uint32, actors []string,
+	FindFilm(title string, dateFrom string, dateTo string, ratingFrom float32, ratingTo float32,
+		mpaa string, genres []uint32, actors []string, first uint64, limit uint64,
 	) ([]models.FilmItem, error)
 	FavoriteFilms(userId uint64, start uint64, end uint64) ([]models.FilmItem, error)
 	FavoriteFilmsAdd(userId uint64, filmId uint64) error
@@ -213,11 +213,11 @@ func (core *Core) GetGenre(genreId uint64) (string, error) {
 	return genre, nil
 }
 
-func (core *Core) FindFilm(title string, dateFrom string, dateTo string,
-	ratingFrom float32, ratingTo float32, mpaa string, genres []uint32, actors []string,
+func (core *Core) FindFilm(title string, dateFrom string, dateTo string, ratingFrom float32, ratingTo float32,
+	mpaa string, genres []uint32, actors []string, first uint64, limit uint64,
 ) ([]models.FilmItem, error) {
 
-	films, err := core.films.FindFilm(title, dateFrom, dateTo, ratingFrom, ratingTo, mpaa, genres, actors)
+	films, err := core.films.FindFilm(title, dateFrom, dateTo, ratingFrom, ratingTo, mpaa, genres, actors, first, limit)
 	if err != nil {
 		core.lg.Error("find film error", "err", err.Error())
 		return nil, fmt.Errorf("find film err: %w", err)

@@ -9,5 +9,5 @@ type FilmItem struct {
 	ReleaseDate string  `json:"release_date"`
 	Country     string  `json:"country"`
 	Mpaa        string  `json:"mpaa"`
-	Rating      float32 `json:"rating"`
+	Rating      float64 `json:"rating"`
 }

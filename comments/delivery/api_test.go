@@ -12,7 +12,7 @@ import (
 	"testing"
 
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/comments/mocks"
-	"github.com/go-park-mail-ru/2023_2_Vkladyshi/middleware"
+	"github.com/go-park-mail-ru/2023_2_Vkladyshi/pkg/middleware"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/pkg/requests"
 	"github.com/golang/mock/gomock"
 	"github.com/mailru/easyjson"

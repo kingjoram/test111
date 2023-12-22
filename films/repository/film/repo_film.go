@@ -23,8 +23,8 @@ type IFilmsRepo interface {
 	GetFilms(start uint64, end uint64) ([]models.FilmItem, error)
 	GetFilm(filmId uint64) (*models.FilmItem, error)
 	GetFilmRating(filmId uint64) (float64, uint64, error)
-	FindFilm(title string, dateFrom string, dateTo string,
-		ratingFrom float32, ratingTo float32, mpaa string, genres []uint32, actors []string,
+	FindFilm(title string, dateFrom string, dateTo string, ratingFrom float32, ratingTo float32,
+		mpaa string, genres []uint32, actors []string, first uint64, limit uint64,
 	) ([]models.FilmItem, error)
 	GetFavoriteFilms(userId uint64, start uint64, end uint64) ([]models.FilmItem, error)
 	AddFavoriteFilm(userId uint64, filmId uint64) error
@@ -157,8 +157,8 @@ func (repo *RepoPostgre) GetFilmRating(filmId uint64) (float64, uint64, error) {
 	return rating.Float64, uint64(number.Int64), nil
 }
 
-func (repo *RepoPostgre) FindFilm(title string, dateFrom string, dateTo string,
-	ratingFrom float32, ratingTo float32, mpaa string, genres []uint32, actors []string,
+func (repo *RepoPostgre) FindFilm(title string, dateFrom string, dateTo string, ratingFrom float32, ratingTo float32,
+	mpaa string, genres []uint32, actors []string, first uint64, limit uint64,
 ) ([]models.FilmItem, error) {
 
 	films := []models.FilmItem{}
@@ -169,7 +169,7 @@ func (repo *RepoPostgre) FindFilm(title string, dateFrom string, dateTo string,
 	s.WriteString(
 		"SELECT DISTINCT film.title, film.id, film.poster, AVG(users_comment.rating) FROM film " +
 			"JOIN films_genre ON film.id = films_genre.id_film " +
-			"JOIN users_comment ON film.id = users_comment.id_film " +
+			"LEFT JOIN users_comment ON film.id = users_comment.id_film " +
 			"JOIN person_in_film ON film.id = person_in_film.id_film " +
 			"JOIN crew ON person_in_film.id_person = crew.id ")
 	if title != "" {
@@ -237,10 +237,12 @@ func (repo *RepoPostgre) FindFilm(title string, dateFrom string, dateTo string,
 	}
 	s.WriteString(
 		"GROUP BY film.title, film.id " +
-			"HAVING AVG(users_comment.rating) >= $" + strconv.Itoa(paramNum) + " AND AVG(users_comment.rating) <= $" + strconv.Itoa(paramNum+1) + " " +
-			"ORDER BY film.title")
+			"HAVING (AVG(users_comment.rating) >= $" + strconv.Itoa(paramNum) + " AND AVG(users_comment.rating) <= $" + strconv.Itoa(paramNum+1) + ") " +
+			"OR AVG(users_comment.rating) IS NULL " +
+			"ORDER BY film.title " +
+			"LIMIT $" + strconv.Itoa(paramNum+2) + " OFFSET $" + strconv.Itoa(paramNum+3))
 
-	params = append(params, ratingFrom, ratingTo)
+	params = append(params, ratingFrom, ratingTo, limit, first)
 	rows, err := repo.db.Query(s.String(), params...)
 
 	if err != nil {
@@ -250,10 +252,15 @@ func (repo *RepoPostgre) FindFilm(title string, dateFrom string, dateTo string,
 
 	for rows.Next() {
 		post := models.FilmItem{}
-		err := rows.Scan(&post.Title, &post.Id, &post.Poster, &post.Rating)
+		ratingPost := sql.NullFloat64{}
+		err := rows.Scan(&post.Title, &post.Id, &post.Poster, &ratingPost)
 		if err != nil {
 			return nil, fmt.Errorf("find film scan err: %w", err)
 		}
+		if !ratingPost.Valid {
+			ratingPost.Float64 = 0
+		}
+		post.Rating = ratingPost.Float64
 		films = append(films, post)
 	}
 

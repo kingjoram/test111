@@ -9,7 +9,7 @@ import (
 
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/comments/usecase"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/configs"
-	"github.com/go-park-mail-ru/2023_2_Vkladyshi/middleware"
+	"github.com/go-park-mail-ru/2023_2_Vkladyshi/pkg/middleware"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/pkg/requests"
 	"github.com/mailru/easyjson"
 	"github.com/prometheus/client_golang/prometheus/promhttp"

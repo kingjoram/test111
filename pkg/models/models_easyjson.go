@@ -312,7 +312,7 @@ func easyjsonD2b7633eDecodeGithubComGoParkMailRu20232VkladyshiPkgModels3(in *jle
 		case "mpaa":
 			out.Mpaa = string(in.String())
 		case "rating":
-			out.Rating = float32(in.Float32())
+			out.Rating = float64(in.Float64())
 		default:
 			in.SkipRecursive()
 		}
@@ -365,7 +365,7 @@ func easyjsonD2b7633eEncodeGithubComGoParkMailRu20232VkladyshiPkgModels3(out *jw
 	{
 		const prefix string = ",\"rating\":"
 		out.RawString(prefix)
-		out.Float32(float32(in.Rating))
+		out.Float64(float64(in.Rating))
 	}
 	out.RawByte('}')
 }

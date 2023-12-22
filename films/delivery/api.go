@@ -12,7 +12,7 @@ import (
 
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/configs"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/films/usecase"
-	"github.com/go-park-mail-ru/2023_2_Vkladyshi/middleware"
+	"github.com/go-park-mail-ru/2023_2_Vkladyshi/pkg/middleware"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/pkg/models"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/pkg/requests"
 	"github.com/mailru/easyjson"
@@ -67,7 +67,6 @@ func (a *API) Films(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 
 	if r.Method != http.MethodGet {
-		fmt.Println("nice")
 		response.Status = http.StatusMethodNotAllowed
 		a.ct.SendResponse(w, r, response, a.lg, start)
 		return
@@ -203,8 +202,8 @@ func (a *API) FindFilm(w http.ResponseWriter, r *http.Request) {
 		a.ct.SendResponse(w, r, response, a.lg, start)
 		return
 	}
-
-	films, err := a.core.FindFilm(request.Title, request.DateFrom, request.DateTo, request.RatingFrom, request.RatingTo, request.Mpaa, request.Genres, request.Actors)
+	films, err := a.core.FindFilm(request.Title, request.DateFrom, request.DateTo, request.RatingFrom, request.RatingTo,
+		request.Mpaa, request.Genres, request.Actors, (request.Page-1)*request.PerPage, request.PerPage)
 	if err != nil {
 		if errors.Is(err, usecase.ErrNotFound) {
 			response.Status = http.StatusNotFound

@@ -131,15 +131,15 @@ func TestFindFilm(t *testing.T) {
 	expected := []models.FilmItem{expectedFilm}
 
 	mockObj := mocks.NewMockIFilmsRepo(mockCtrl)
-	firstCall := mockObj.EXPECT().FindFilm(string("t"), string("df"), string("dt"), float32(0), float32(10), string(""), nil, nil).Return(expected, nil)
-	mockObj.EXPECT().FindFilm(string("t0"), string("df"), string("dt"), float32(0), float32(10), string(""), nil, nil).After(firstCall).Return(nil, fmt.Errorf("repo_error"))
-	mockObj.EXPECT().FindFilm(string("t10"), string("df"), string("dt"), float32(0), float32(10), string(""), nil, nil).Return([]models.FilmItem{}, nil)
+	firstCall := mockObj.EXPECT().FindFilm(string("t"), string("df"), string("dt"), float32(0), float32(10), string(""), nil, nil, uint64(0), uint64(1)).Return(expected, nil)
+	mockObj.EXPECT().FindFilm(string("t0"), string("df"), string("dt"), float32(0), float32(10), string(""), nil, nil, uint64(0), uint64(0)).After(firstCall).Return(nil, fmt.Errorf("repo_error"))
+	mockObj.EXPECT().FindFilm(string("t10"), string("df"), string("dt"), float32(0), float32(10), string(""), nil, nil, uint64(1), uint64(1)).Return([]models.FilmItem{}, nil)
 
 	var buff bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buff, nil))
 	core := Core{films: mockObj, lg: logger}
 
-	result, err := core.FindFilm("t", "df", "dt", 0, 10, "", nil, nil)
+	result, err := core.FindFilm("t", "df", "dt", 0, 10, "", nil, nil, 0, 1)
 	if err != nil {
 		t.Errorf("unexpected error %s", err)
 		return
@@ -149,7 +149,7 @@ func TestFindFilm(t *testing.T) {
 		return
 	}
 
-	result, err = core.FindFilm("t0", "df", "dt", 0, 10, "", nil, nil)
+	result, err = core.FindFilm("t0", "df", "dt", 0, 10, "", nil, nil, 0, 0)
 	if err == nil {
 		t.Errorf("wanted error")
 		return
@@ -159,7 +159,7 @@ func TestFindFilm(t *testing.T) {
 		return
 	}
 
-	result, err = core.FindFilm("t10", "df", "dt", 0, 10, "", nil, nil)
+	result, err = core.FindFilm("t10", "df", "dt", 0, 10, "", nil, nil, 1, 1)
 	if !errors.Is(err, ErrNotFound) {
 		t.Errorf("expected not found")
 		return
