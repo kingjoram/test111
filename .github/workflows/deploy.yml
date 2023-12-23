@@ -1,17 +1,16 @@
 name: CI_DEPLOY
-
 on:
   push:
     branches:
       - 'main'
-
 env:
    SERVER_PATH: /home/ubuntu
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    steps:
+
+    steps:        
       - name: Checkout main
         uses: actions/checkout@v4 
 
@@ -22,9 +21,10 @@ jobs:
           
       - name: Build binary
         run: |
-          go build -o "cmd/films" "cmd/films/main.go" && \
-          go build -o "cmd/comments" "cmd/comments/main.go" && \
-          go build -o "cmd/authorization" "cmd/authorization/main.go"
+          go build -o "cmd/films/films" "cmd/films/main.go" && \
+          go build -o "cmd/comments/comments" "cmd/comments/main.go" && \
+          go build -o "cmd/authorization/auth" "cmd/authorization/main.go"
+        
       - name: Create SSH directory and known_hosts file
         run: |
           mkdir -p ~/.ssh
@@ -37,9 +37,38 @@ jobs:
         
       - name: Update known hosts
         run: ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
-      - name: Deploy file configure
-        run:  mkdir deploy &&
-              cp -r cmd configs deploy
+        
+      - name: Set deploy version
+        run: echo "DEPLOY_VERSION=$(date +'%Y-%m-%d_%H-%M-%S')" >> $GITHUB_ENV
 
-      - name: Copy deploy files to server
-        run:  scp -i 2023-2-Vkladyshi-D7WFxsn1.crt -r deploy "${{ secrets.SERVER_USER }}"@"${{ secrets.SERVER_HOST }}":$SERVER_PATH
+      - name: Deploy file configure
+        run: |
+          echo -e '#!bin/bash \ncd authorization && nohup ./auth > output.log 2>&1 & \ncd comments && nohup ./comments > commentsnohup.log 2>&1 & \ncd films && nohup ./films > filmsnohup.log 2>&1 &' >> run.sh
+          mkdir deploy_v${{ env.DEPLOY_VERSION }} && mv "run.sh" "cmd/run.sh" &&
+          cp -r cmd configs deploy_v${{ env.DEPLOY_VERSION }}
+      
+      - name: Copy deploy files
+        run: |
+          scp -i 2023-2-Vkladyshi-D7WFxsn1.crt -r "deploy_v${{ env.DEPLOY_VERSION }}" "${{ secrets.SERVER_USER }}"@"${{ secrets.SERVER_HOST }}":$SERVER_PATH/build_versions
+
+      - name: Stop worked process auth
+        run: |
+          if ssh -i 2023-2-Vkladyshi-D7WFxsn1.crt "${{ secrets.SERVER_USER }}"@"${{ secrets.SERVER_HOST }}" "pgrep auth"; then
+             ssh -i 2023-2-Vkladyshi-D7WFxsn1.crt "${{ secrets.SERVER_USER }}"@"${{ secrets.SERVER_HOST }}" "pkill auth"
+          fi
+          
+      - name: Stop worked process films
+        run: |
+          if ssh -i 2023-2-Vkladyshi-D7WFxsn1.crt "${{ secrets.SERVER_USER }}"@"${{ secrets.SERVER_HOST }}" "pgrep films"; then
+             ssh -i 2023-2-Vkladyshi-D7WFxsn1.crt "${{ secrets.SERVER_USER }}"@"${{ secrets.SERVER_HOST }}" "pkill films"
+          fi
+          
+      - name: Stop worked process comments
+        run: |
+          if ssh -i 2023-2-Vkladyshi-D7WFxsn1.crt "${{ secrets.SERVER_USER }}"@"${{ secrets.SERVER_HOST }}" "pgrep comments"; then
+             ssh -i 2023-2-Vkladyshi-D7WFxsn1.crt "${{ secrets.SERVER_USER }}"@"${{ secrets.SERVER_HOST }}" "pkill comments"
+          fi
+          
+      - name: Restart processes
+        run: |
+          ssh -i 2023-2-Vkladyshi-D7WFxsn1.crt "${{ secrets.SERVER_USER }}"@"${{ secrets.SERVER_HOST }}" "cd build_versions/deploy_v${{ env.DEPLOY_VERSION }}/cmd && sh run.sh"
