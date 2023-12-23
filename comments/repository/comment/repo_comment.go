@@ -19,6 +19,7 @@ type ICommentRepo interface {
 	GetFilmComments(filmId uint64, first uint64, limit uint64) ([]models.CommentItem, error)
 	AddComment(filmId uint64, userId uint64, rating uint16, text string) error
 	HasUsersComment(userId uint64, filmId uint64) (bool, error)
+	DeleteComment(idUser uint64, idFilm uint64) error
 }
 
 type RepoPostgre struct {
@@ -106,4 +107,12 @@ func (repo *RepoPostgre) HasUsersComment(userId uint64, filmId uint64) (bool, er
 	}
 
 	return true, nil
+}
+
+func (repo *RepoPostgre) DeleteComment(idUser uint64, idFilm uint64) error {
+	_, err := repo.db.Exec("DELETE FROM users_comment WHERE id_user = $1 AND id_film = $2", idUser, idFilm)
+	if err != nil {
+		return fmt.Errorf("delete comment err: %w", err)
+	}
+	return nil
 }

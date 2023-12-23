@@ -70,6 +70,7 @@ func (s *server) GetId(ctx context.Context, req *pb.FindIdRequest) (*pb.FindIdRe
 
 	id, err := s.userRepo.GetUserProfileId(login)
 	if err != nil {
+		s.lg.Error("failed get user profile id: %v", err)
 		return nil, err
 	}
 	return &pb.FindIdResponse{
@@ -80,6 +81,7 @@ func (s *server) GetId(ctx context.Context, req *pb.FindIdRequest) (*pb.FindIdRe
 func (s *server) GetIdsAndPaths(ctx context.Context, req *pb.NamesAndPathsListRequest) (*pb.NamesAndPathsResponse, error) {
 	names, paths, err := s.userRepo.GetNamesAndPaths(req.Ids)
 	if err != nil {
+		s.lg.Error("failed get users ids and photo: %v", err)
 		return nil, err
 	}
 	return &pb.NamesAndPathsResponse{
@@ -91,11 +93,24 @@ func (s *server) GetIdsAndPaths(ctx context.Context, req *pb.NamesAndPathsListRe
 func (s *server) GetAuthorizationStatus(ctx context.Context, req *pb.AuthorizationCheckRequest) (*pb.AuthorizationCheckResponse, error) {
 	status, err := s.sessionRepo.CheckActiveSession(ctx, req.Sid, s.lg)
 	if err != nil {
+		s.lg.Error("failed to check auth status: %v", err)
 		return nil, err
 	}
 	return &pb.AuthorizationCheckResponse{
 		Status: status,
 	}, nil
+}
+
+func (s *server) GetRole(ctx context.Context, req *pb.RoleRequest) (*pb.RoleResponse, error) {
+    role, err := s.userRepo.GetUserRole(req.Login)
+	if err != nil {
+		s.lg.Error("failed to get user role: %v", err)
+		return nil, err
+	}
+
+	return &pb.RoleResponse{
+		Role: role,
+	},nil
 }
 
 func (s *authGrpc) ListenAndServeGrpc() error {

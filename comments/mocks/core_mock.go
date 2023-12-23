@@ -50,6 +50,20 @@ func (mr *MockICoreMockRecorder) AddComment(filmId, userId, rating, text interfa
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddComment", reflect.TypeOf((*MockICore)(nil).AddComment), filmId, userId, rating, text)
 }
 
+// DeleteComment mocks base method.
+func (m *MockICore) DeleteComment(idUser, idFilm uint64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteComment", idUser, idFilm)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteComment indicates an expected call of DeleteComment.
+func (mr *MockICoreMockRecorder) DeleteComment(idUser, idFilm interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteComment", reflect.TypeOf((*MockICore)(nil).DeleteComment), idUser, idFilm)
+}
+
 // GetFilmComments mocks base method.
 func (m *MockICore) GetFilmComments(filmId, first, limit uint64) ([]models.CommentItem, error) {
 	m.ctrl.T.Helper()

@@ -1,0 +1,45 @@
+name: CI_DEPLOY
+
+on:
+  push:
+    branches:
+      - 'main'
+
+env:
+   SERVER_PATH: /home/ubuntu
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4 
+
+      - name: Setup go
+        uses: actions/setup-go@v4
+        with: 
+          go-version: '1.21'
+          
+      - name: Build binary
+        run: |
+          go build -o "cmd/films" "cmd/films/main.go" && \
+          go build -o "cmd/comments" "cmd/comments/main.go" && \
+          go build -o "cmd/authorization" "cmd/authorization/main.go"
+      - name: Create SSH directory and known_hosts file
+        run: |
+          mkdir -p ~/.ssh
+          touch ~/.ssh/known_hosts
+      - name: Generate SSH Key
+        run: echo "${{ secrets.KEY }}" >> 2023-2-Vkladyshi-D7WFxsn1.crt
+
+      - name: SSH configure file
+        run: chmod 400 2023-2-Vkladyshi-D7WFxsn1.crt
+        
+      - name: Update known hosts
+        run: ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+      - name: Deploy file configure
+        run:  mkdir deploy &&
+              cp -r cmd configs deploy
+
+      - name: Copy deploy files to server
+        run:  scp -i 2023-2-Vkladyshi-D7WFxsn1.crt -r deploy "${{ secrets.SERVER_USER }}"@"${{ secrets.SERVER_HOST }}":$SERVER_PATH

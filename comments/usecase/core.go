@@ -19,6 +19,7 @@ type ICore interface {
 	GetFilmComments(filmId uint64, first uint64, limit uint64) ([]models.CommentItem, error)
 	AddComment(filmId uint64, userId uint64, rating uint16, text string) (bool, error)
 	GetUserId(ctx context.Context, sid string) (uint64, error)
+	DeleteComment(idUser uint64, idFilm uint64) error
 }
 
 type Core struct {
@@ -102,4 +103,14 @@ func (core *Core) GetUserId(ctx context.Context, sid string) (uint64, error) {
 		return 0, fmt.Errorf("get user id err: %w", err)
 	}
 	return uint64(response.Value), nil
+}
+
+func (core *Core) DeleteComment(idUser uint64, idFilm uint64) error {
+	err := core.comments.DeleteComment(idUser, idFilm)
+	if err != nil {
+		core.lg.Error("delete comment error", "err", err.Error())
+		return fmt.Errorf("delete comment err: %w", err)
+	}
+
+	return nil
 }

@@ -4,7 +4,7 @@
 // - protoc             v3.12.4
 // source: auth.proto
 
-package auth_proto
+package proto
 
 import (
 	context "context"
@@ -22,6 +22,7 @@ const (
 	Authorization_GetId_FullMethodName                  = "/auth.Authorization/GetId"
 	Authorization_GetIdsAndPaths_FullMethodName         = "/auth.Authorization/GetIdsAndPaths"
 	Authorization_GetAuthorizationStatus_FullMethodName = "/auth.Authorization/GetAuthorizationStatus"
+	Authorization_GetRole_FullMethodName                = "/auth.Authorization/GetRole"
 )
 
 // AuthorizationClient is the client API for Authorization service.
@@ -31,6 +32,7 @@ type AuthorizationClient interface {
 	GetId(ctx context.Context, in *FindIdRequest, opts ...grpc.CallOption) (*FindIdResponse, error)
 	GetIdsAndPaths(ctx context.Context, in *NamesAndPathsListRequest, opts ...grpc.CallOption) (*NamesAndPathsResponse, error)
 	GetAuthorizationStatus(ctx context.Context, in *AuthorizationCheckRequest, opts ...grpc.CallOption) (*AuthorizationCheckResponse, error)
+	GetRole(ctx context.Context, in *RoleRequest, opts ...grpc.CallOption) (*RoleResponse, error)
 }
 
 type authorizationClient struct {
@@ -68,6 +70,15 @@ func (c *authorizationClient) GetAuthorizationStatus(ctx context.Context, in *Au
 	return out, nil
 }
 
+func (c *authorizationClient) GetRole(ctx context.Context, in *RoleRequest, opts ...grpc.CallOption) (*RoleResponse, error) {
+	out := new(RoleResponse)
+	err := c.cc.Invoke(ctx, Authorization_GetRole_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AuthorizationServer is the server API for Authorization service.
 // All implementations must embed UnimplementedAuthorizationServer
 // for forward compatibility
@@ -75,6 +86,7 @@ type AuthorizationServer interface {
 	GetId(context.Context, *FindIdRequest) (*FindIdResponse, error)
 	GetIdsAndPaths(context.Context, *NamesAndPathsListRequest) (*NamesAndPathsResponse, error)
 	GetAuthorizationStatus(context.Context, *AuthorizationCheckRequest) (*AuthorizationCheckResponse, error)
+	GetRole(context.Context, *RoleRequest) (*RoleResponse, error)
 	mustEmbedUnimplementedAuthorizationServer()
 }
 
@@ -90,6 +102,9 @@ func (UnimplementedAuthorizationServer) GetIdsAndPaths(context.Context, *NamesAn
 }
 func (UnimplementedAuthorizationServer) GetAuthorizationStatus(context.Context, *AuthorizationCheckRequest) (*AuthorizationCheckResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetAuthorizationStatus not implemented")
+}
+func (UnimplementedAuthorizationServer) GetRole(context.Context, *RoleRequest) (*RoleResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetRole not implemented")
 }
 func (UnimplementedAuthorizationServer) mustEmbedUnimplementedAuthorizationServer() {}
 
@@ -158,6 +173,24 @@ func _Authorization_GetAuthorizationStatus_Handler(srv interface{}, ctx context.
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Authorization_GetRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RoleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthorizationServer).GetRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Authorization_GetRole_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthorizationServer).GetRole(ctx, req.(*RoleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Authorization_ServiceDesc is the grpc.ServiceDesc for Authorization service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -176,6 +209,10 @@ var Authorization_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetAuthorizationStatus",
 			Handler:    _Authorization_GetAuthorizationStatus_Handler,
+		},
+		{
+			MethodName: "GetRole",
+			Handler:    _Authorization_GetRole_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -78,18 +78,18 @@ func (mr *MockICrewRepoMockRecorder) CheckActor(userId, actorId interface{}) *go
 }
 
 // FindActor mocks base method.
-func (m *MockICrewRepo) FindActor(name, birthDate string, films, career []string, country string) ([]models.Character, error) {
+func (m *MockICrewRepo) FindActor(name, birthDate string, films, career []string, country string, first, limit uint64) ([]models.Character, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindActor", name, birthDate, films, career, country)
+	ret := m.ctrl.Call(m, "FindActor", name, birthDate, films, career, country, first, limit)
 	ret0, _ := ret[0].([]models.Character)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // FindActor indicates an expected call of FindActor.
-func (mr *MockICrewRepoMockRecorder) FindActor(name, birthDate, films, career, country interface{}) *gomock.Call {
+func (mr *MockICrewRepoMockRecorder) FindActor(name, birthDate, films, career, country, first, limit interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindActor", reflect.TypeOf((*MockICrewRepo)(nil).FindActor), name, birthDate, films, career, country)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindActor", reflect.TypeOf((*MockICrewRepo)(nil).FindActor), name, birthDate, films, career, country, first, limit)
 }
 
 // GetActor mocks base method.

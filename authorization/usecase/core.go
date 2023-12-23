@@ -33,6 +33,8 @@ type ICore interface {
 	GetUserRole(login string) (string, error)
 	Subscribe(userName string) (bool, error)
 	IsSubscribed(userName string) (bool, error)
+	FindUsers(login string, role string, first, limit uint64) ([]models.UserItem, error)
+	ChangeUsersRole(login string, role string, currentUserRole string) error
 }
 
 type Core struct {
@@ -43,8 +45,12 @@ type Core struct {
 	csrfTokens csrf.CsrfRepo
 }
 
-var InvalideEmail = errors.New("invalide email")
-var LostConnection = errors.New("Redis connection lost")
+var (
+	ErrNotFound    = errors.New("not found")
+	ErrNotAllowed  = errors.New("not allowed")
+	LostConnection = errors.New("Redis connection lost")
+	InvalideEmail  = errors.New("invalide email")
+)
 
 var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
@@ -277,4 +283,30 @@ func (core *Core) IsSubscribed(userName string) (bool, error) {
 	}
 
 	return isSubcribed, nil
+}
+
+func (core *Core) FindUsers(login string, role string, first, limit uint64) ([]models.UserItem, error) {
+	users, err := core.users.FindUsers(login, role, first, limit)
+	if err != nil {
+		core.lg.Error("find user error", "err:", err.Error())
+		return nil, fmt.Errorf("find user error: %w", err)
+	}
+	if len(users) == 0 {
+		return nil, ErrNotFound
+	}
+
+	return users, nil
+}
+
+func (core *Core) ChangeUsersRole(login string, role string, currentUserRole string) error {
+	if currentUserRole != "super" {
+		return ErrNotAllowed
+	}
+
+	err := core.users.ChangeUsersRole(login, role)
+	if err != nil {
+		core.lg.Error("change user role error", "err:", err.Error())
+		return fmt.Errorf("change user role error: %w", err)
+	}
+	return nil
 }

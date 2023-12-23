@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/authorization/usecase"
@@ -59,6 +60,8 @@ func GetApi(c *usecase.Core, l *slog.Logger) *API {
 	api.mx.HandleFunc("/api/v1/settings", api.Profile)
 	api.mx.HandleFunc("/api/v1/user/subscribePush", api.SubcribePush)
 	api.mx.HandleFunc("/api/v1/user/isSubscribed", api.IsSubcribed)
+	api.mx.HandleFunc("/api/v1/users/list", api.GetUsers)
+	api.mx.HandleFunc("/api/v1/users/updateRole", api.ChangeUserRole)
 
 	return api
 }
@@ -281,6 +284,123 @@ func (a *API) GetCsrfToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("X-CSRF-Token", token)
+	a.ct.SendResponse(w, r, response, a.lg, start)
+}
+
+func (a *API) GetUsers(w http.ResponseWriter, r *http.Request) {
+	response := requests.Response{Status: http.StatusOK, Body: nil}
+	start := time.Now()
+
+	if r.Method != http.MethodGet {
+		response.Status = http.StatusMethodNotAllowed
+		a.ct.SendResponse(w, r, response, a.lg, start)
+		return
+	}
+
+	login := r.URL.Query().Get("login")
+	role := r.URL.Query().Get("role")
+
+	page, err := strconv.ParseUint(r.URL.Query().Get("page"), 10, 64)
+	if err != nil {
+		page = 1
+	}
+
+	pageSize, err := strconv.ParseUint(r.URL.Query().Get("per_page"), 10, 64)
+	if err != nil {
+		pageSize = 10
+	}
+
+	users, err := a.core.FindUsers(login, role, (page-1)*pageSize, pageSize)
+	if err != nil {
+		if errors.Is(err, usecase.ErrNotFound) {
+			response.Status = http.StatusNotFound
+			a.ct.SendResponse(w, r, response, a.lg, start)
+			return
+		}
+		a.lg.Error("get users error", "err:", err.Error())
+		response.Status = http.StatusInternalServerError
+		a.ct.SendResponse(w, r, response, a.lg, start)
+		return
+	}
+
+	response.Body = users
+	a.ct.SendResponse(w, r, response, a.lg, start)
+}
+
+func (a *API) ChangeUserRole(w http.ResponseWriter, r *http.Request) {
+	response := requests.Response{Status: http.StatusOK, Body: nil}
+
+	start := time.Now()
+	if r.Method != http.MethodPost {
+		response.Status = http.StatusMethodNotAllowed
+		a.ct.SendResponse(w, r, response, a.lg, start)
+		return
+	}
+
+	csrfToken := r.Header.Get("x-csrf-token")
+
+	_, err := a.core.CheckCsrfToken(r.Context(), csrfToken)
+	if err != nil {
+		w.Header().Set("X-CSRF-Token", "null")
+		response.Status = http.StatusPreconditionFailed
+		a.ct.SendResponse(w, r, response, a.lg, start)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		a.lg.Error("ChangeRole error", "err", err.Error())
+		response.Status = http.StatusBadRequest
+		a.ct.SendResponse(w, r, response, a.lg, start)
+		return
+	}
+
+	var request requests.ChangeRoleRequest
+
+	err = easyjson.Unmarshal(body, &request)
+	if err != nil {
+		a.lg.Error("Signup error", "err", err.Error())
+		response.Status = http.StatusBadRequest
+		a.ct.SendResponse(w, r, response, a.lg, start)
+		return
+	}
+
+	session, err := r.Cookie("session_id")
+	if errors.Is(err, http.ErrNoCookie) {
+		response.Status = http.StatusUnauthorized
+		a.ct.SendResponse(w, r, response, a.lg, start)
+		return
+	}
+
+	userName, err := a.core.GetUserName(r.Context(), session.Value)
+	if err != nil {
+		a.lg.Error("User login not found", "err", err.Error())
+		response.Status = http.StatusInternalServerError
+		a.ct.SendResponse(w, r, response, a.lg, start)
+		return
+	}
+
+	userRole, err := a.core.GetUserRole(userName)
+	if err != nil {
+		a.lg.Error("User role not found", "err", err.Error())
+		response.Status = http.StatusInternalServerError
+		a.ct.SendResponse(w, r, response, a.lg, start)
+		return
+	}
+
+	err = a.core.ChangeUsersRole(request.Login, request.Role, userRole)
+	if err != nil {
+		if errors.Is(err, usecase.ErrNotAllowed) {
+			response.Status = http.StatusForbidden
+			a.ct.SendResponse(w, r, response, a.lg, start)
+			return
+		}
+		a.lg.Error("Change user role error", "err", err.Error())
+		response.Status = http.StatusInternalServerError
+		a.ct.SendResponse(w, r, response, a.lg, start)
+		return
+	}
+
 	a.ct.SendResponse(w, r, response, a.lg, start)
 }
 

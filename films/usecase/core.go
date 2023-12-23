@@ -41,12 +41,13 @@ type ICore interface {
 	FavoriteFilmsRemove(userId uint64, filmId uint64) error
 	GetCalendar() (*requests.CalendarResponse, error)
 	GetUserId(ctx context.Context, sid string) (uint64, error)
-	FindActor(name string, birthDate string, films []string, career []string, country string) ([]models.Character, error)
+	FindActor(name string, birthDate string, films []string, career []string, country string, first, limit uint64) ([]models.Character, error)
 	AddRating(filmId uint64, userId uint64, rating uint16) (bool, error)
 	AddFilm(film models.FilmItem, genres []uint64, actors []uint64) error
 	FavoriteActors(userId uint64, start uint64, end uint64) ([]models.Character, error)
 	FavoriteActorsAdd(userId uint64, filmId uint64) error
 	FavoriteActorsRemove(userId uint64, filmId uint64) error
+	DeleteRating(idUser uint64, idFilm uint64) error
 }
 
 type Core struct {
@@ -297,8 +298,8 @@ func (core *Core) GetUserId(ctx context.Context, sid string) (uint64, error) {
 	return uint64(response.Value), nil
 }
 
-func (core *Core) FindActor(name string, birthDate string, films []string, career []string, country string) ([]models.Character, error) {
-	actors, err := core.crew.FindActor(name, birthDate, films, career, country)
+func (core *Core) FindActor(name string, birthDate string, films []string, career []string, country string, first, limit uint64) ([]models.Character, error) {
+	actors, err := core.crew.FindActor(name, birthDate, films, career, country, first, limit)
 	if err != nil {
 		core.lg.Error("find actor error", "err", err.Error())
 		return nil, fmt.Errorf("find actor err: %w", err)
@@ -391,6 +392,16 @@ func (core *Core) FavoriteActorsRemove(userId uint64, actorId uint64) error {
 	if err != nil {
 		core.lg.Error("favorite actors remove error", "err", err.Error())
 		return fmt.Errorf("favorite actors remove err: %w", err)
+	}
+
+	return nil
+}
+
+func (core *Core) DeleteRating(idUser uint64, idFilm uint64) error {
+	err := core.films.DeleteRating(idUser, idFilm)
+	if err != nil {
+		core.lg.Error("delete rating error", "err", err.Error())
+		return fmt.Errorf("delete rating err: %w", err)
 	}
 
 	return nil

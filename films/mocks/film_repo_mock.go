@@ -91,6 +91,20 @@ func (mr *MockIFilmsRepoMockRecorder) CheckFilm(userId, filmId interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckFilm", reflect.TypeOf((*MockIFilmsRepo)(nil).CheckFilm), userId, filmId)
 }
 
+// DeleteRating mocks base method.
+func (m *MockIFilmsRepo) DeleteRating(idUser, idFilm uint64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteRating", idUser, idFilm)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteRating indicates an expected call of DeleteRating.
+func (mr *MockIFilmsRepoMockRecorder) DeleteRating(idUser, idFilm interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRating", reflect.TypeOf((*MockIFilmsRepo)(nil).DeleteRating), idUser, idFilm)
+}
+
 // FindFilm mocks base method.
 func (m *MockIFilmsRepo) FindFilm(title, dateFrom, dateTo string, ratingFrom, ratingTo float32, mpaa string, genres []uint32, actors []string, first, limit uint64) ([]models.FilmItem, error) {
 	m.ctrl.T.Helper()

@@ -51,6 +51,7 @@ func GetApi(c *usecase.Core, l *slog.Logger, cfg *configs.DbDsnCfg) *API {
 	api.mx.HandleFunc("/api/v1/calendar", api.Calendar)
 	api.mx.Handle("/api/v1/rating/add", middleware.AuthCheck(http.HandlerFunc(api.AddRating), c, l))
 	api.mx.HandleFunc("/api/v1/add/film", api.AddFilm)
+	api.mx.Handle("/api/v1/rating/delete", middleware.AuthCheck(http.HandlerFunc(api.DeleteRating), c, l))
 
 	return api
 }
@@ -370,7 +371,7 @@ func (a *API) FindActor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	actors, err := a.core.FindActor(request.Name, request.BirthDate, request.Films, request.Career, request.Country)
+	actors, err := a.core.FindActor(request.Name, request.BirthDate, request.Films, request.Career, request.Country, (request.Page-1)*request.PerPage, request.PerPage)
 	if err != nil {
 		if errors.Is(err, usecase.ErrNotFound) {
 			response.Status = http.StatusNotFound
@@ -386,6 +387,7 @@ func (a *API) FindActor(w http.ResponseWriter, r *http.Request) {
 
 	actorsResponse := requests.ActorsResponse{
 		Actors: actors,
+		Total:  uint64(len(actors)),
 	}
 	response.Body = actorsResponse
 
@@ -654,5 +656,39 @@ func (a *API) FavoriteActors(w http.ResponseWriter, r *http.Request) {
 
 	response.Body = actorsResponse
 
+	a.ct.SendResponse(w, r, response, a.lg, start)
+}
+
+func (a *API) DeleteRating(w http.ResponseWriter, r *http.Request) {
+	response := requests.Response{Status: http.StatusOK, Body: nil}
+	start := time.Now()
+
+	if r.Method != http.MethodPost {
+		response.Status = http.StatusMethodNotAllowed
+		a.ct.SendResponse(w, r, response, a.lg, start)
+		return
+	}
+
+	var request requests.DeleteCommentRequest
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		response.Status = http.StatusBadRequest
+		a.ct.SendResponse(w, r, response, a.lg, start)
+		return
+	}
+
+	if err = easyjson.Unmarshal(body, &request); err != nil {
+		response.Status = http.StatusBadRequest
+		a.ct.SendResponse(w, r, response, a.lg, start)
+		return
+	}
+
+	err = a.core.DeleteRating(request.IdUser, request.IdFilm)
+	if err != nil {
+		response.Status = http.StatusBadRequest
+		a.ct.SendResponse(w, r, response, a.lg, start)
+		return
+	}
 	a.ct.SendResponse(w, r, response, a.lg, start)
 }

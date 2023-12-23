@@ -36,6 +36,7 @@ func GetApi(c *usecase.Core, l *slog.Logger, cfg *configs.CommentCfg) *API {
 	api.mx.Handle("/metrics", promhttp.Handler())
 	api.mx.HandleFunc("/api/v1/comment", api.Comment)
 	api.mx.Handle("/api/v1/comment/add", middleware.AuthCheck(http.HandlerFunc(api.AddComment), c, l))
+	api.mx.Handle("/api/v1/comment/delete", middleware.AuthCheck(http.HandlerFunc(api.DeleteComment), c, l))
 
 	return api
 }
@@ -123,5 +124,39 @@ func (a *API) AddComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	a.ct.SendResponse(w, r, response, a.lg, start)
+}
+
+func (a *API) DeleteComment(w http.ResponseWriter, r *http.Request) {
+	response := requests.Response{Status: http.StatusOK, Body: nil}
+	start := time.Now()
+
+	if r.Method != http.MethodPost {
+		response.Status = http.StatusMethodNotAllowed
+		a.ct.SendResponse(w, r, response, a.lg, start)
+		return
+	}
+
+	var request requests.DeleteCommentRequest
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		response.Status = http.StatusBadRequest
+		a.ct.SendResponse(w, r, response, a.lg, start)
+		return
+	}
+
+	if err = easyjson.Unmarshal(body, &request); err != nil {
+		response.Status = http.StatusBadRequest
+		a.ct.SendResponse(w, r, response, a.lg, start)
+		return
+	}
+
+	err = a.core.DeleteComment(request.IdUser, request.IdFilm)
+	if err != nil {
+		response.Status = http.StatusBadRequest
+		a.ct.SendResponse(w, r, response, a.lg, start)
+		return
+	}
 	a.ct.SendResponse(w, r, response, a.lg, start)
 }

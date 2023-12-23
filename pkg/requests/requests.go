@@ -47,5 +47,17 @@ type (
 		Career    []string `json:"amplua"`
 		Films     []string `json:"films"`
 		Country   string   `json:"country"`
+		Page      uint64   `json:"page"`
+		PerPage   uint64   `json:"per_page"`
+	}
+
+	ChangeRoleRequest struct {
+		Login string `json:"login"`
+		Role  string `json:"role"`
+	}
+
+	DeleteCommentRequest struct {
+		IdUser    uint64 `json:"user_id"`
+		IdFilm    uint64 `json:"film_id"`
 	}
 )

@@ -23,7 +23,7 @@ type ICrewRepo interface {
 	GetFilmScenarists(filmId uint64) ([]models.CrewItem, error)
 	GetFilmCharacters(filmId uint64) ([]models.Character, error)
 	GetActor(actorId uint64) (*models.CrewItem, error)
-	FindActor(name string, birthDate string, films []string, career []string, country string) ([]models.Character, error)
+	FindActor(name string, birthDate string, films []string, career []string, country string, first, limit uint64) ([]models.Character, error)
 	GetFavoriteActors(userId uint64, start uint64, end uint64) ([]models.Character, error)
 	CheckActor(userId uint64, actorId uint64) (bool, error)
 	AddFavoriteActor(userId uint64, actorId uint64) error
@@ -159,7 +159,7 @@ func (repo *RepoPostgre) GetActor(actorId uint64) (*models.CrewItem, error) {
 	return actor, nil
 }
 
-func (repo *RepoPostgre) FindActor(name string, birthDate string, films []string, career []string, country string) ([]models.Character, error) {
+func (repo *RepoPostgre) FindActor(name string, birthDate string, films []string, career []string, country string, first, limit uint64) ([]models.Character, error) {
 	actors := []models.Character{}
 	var hasWhere bool
 	paramNum := 1
@@ -172,7 +172,7 @@ func (repo *RepoPostgre) FindActor(name string, birthDate string, films []string
 	if name != "" {
 		s.WriteString("WHERE ")
 		hasWhere = true
-		s.WriteString("name LIKE($1)")
+		s.WriteString("name LIKE '%' || $1 || '%'")
 		paramNum++
 		params = append(params, name)
 	}
@@ -222,6 +222,9 @@ func (repo *RepoPostgre) FindActor(name string, birthDate string, films []string
 		s.WriteString("country = $" + strconv.Itoa(paramNum))
 		params = append(params, country)
 	}
+
+	s.WriteString("LIMIT $" + strconv.Itoa(paramNum) + " OFFSET $" + strconv.Itoa(paramNum+1))
+	params = append(params, limit, first)
 
 	rows, err := repo.db.Query(s.String(), params...)
 	if err != nil {

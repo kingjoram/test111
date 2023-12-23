@@ -27,6 +27,8 @@ type IUserRepo interface {
 	GetUserRole(login string) (string, error)
 	IsSubscribed(login string) (bool, error)
 	ChangeSubsribe(login string, isSubscribed bool) error
+	FindUsers(login string, role string, first, limit uint64) ([]models.UserItem, error)
+	ChangeUsersRole(login string, role string) error
 }
 
 type RepoPostgre struct {
@@ -259,6 +261,60 @@ func (repo *RepoPostgre) ChangeSubsribe(login string, isSubscribed bool) error {
 	_, err := repo.db.Exec("UPDATE profile SET is_subsсribed = $1 WHERE login = $2", isSubscribed, login)
 	if err != nil {
 		return fmt.Errorf("change subscribe error: %w", err)
+	}
+
+	return nil
+}
+
+func (repo *RepoPostgre) FindUsers(login string, role string, first, limit uint64) ([]models.UserItem, error) {
+	users := []models.UserItem{}
+
+	var hasWhere bool
+	paramNum := 1
+	var params []interface{}
+	var s strings.Builder
+	s.WriteString("SELECT id, login, photo, role FROM profile ")
+	if login != "" {
+		s.WriteString("WHERE login = $1 ")
+		hasWhere = true
+		paramNum++
+		params = append(params, login)
+	}
+	if role != "" {
+		if !hasWhere {
+			s.WriteString("WHERE ")
+		} else {
+			s.WriteString("AND ")
+		}
+		s.WriteString("role = $" + strconv.Itoa(paramNum) + " ")
+		paramNum++
+		params = append(params, role)
+	}
+	s.WriteString("LIMIT $" + strconv.Itoa(paramNum) + " OFFSET $" + strconv.Itoa(paramNum+1))
+	params = append(params, limit, first)
+
+	rows, err := repo.db.Query(s.String(), params...)
+	if err != nil {
+		return nil, fmt.Errorf("find users err: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		post := models.UserItem{}
+		err := rows.Scan(&post.Id, &post.Login, &post.Photo, &post.Role)
+		if err != nil {
+			return nil, fmt.Errorf("find users scan err: %w", err)
+		}
+		users = append(users, post)
+	}
+
+	return users, nil
+}
+
+func (repo *RepoPostgre) ChangeUsersRole(login string, role string) error {
+	_, err := repo.db.Exec("UPDATE profile SET role = $1 WHERE login = $2", role, login)
+	if err != nil {
+		return fmt.Errorf("change user role error: %w", err)
 	}
 
 	return nil

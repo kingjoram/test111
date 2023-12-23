@@ -371,6 +371,7 @@ func TestFindActor(t *testing.T) {
 	actors := []models.Character{actorItem}
 	expectedResponse := requests.ActorsResponse{
 		Actors: actors,
+		Total:  1,
 	}
 
 	testCases := map[string]struct {
@@ -395,12 +396,12 @@ func TestFindActor(t *testing.T) {
 		"not found error": {
 			method: http.MethodPost,
 			result: &requests.Response{Status: http.StatusNotFound, Body: nil},
-			body:   createActorBody(requests.FindActorRequest{Name: "n2", Career: nil, Films: nil}),
+			body:   createActorBody(requests.FindActorRequest{Name: "n2", Career: nil, Films: nil, Page: 2, PerPage: 1}),
 		},
 		"Ok": {
 			method: http.MethodPost,
 			result: getExpectedResult(&requests.Response{Status: http.StatusOK, Body: expectedResponse}),
-			body:   createActorBody(requests.FindActorRequest{Name: "n3", Career: nil, Films: nil}),
+			body:   createActorBody(requests.FindActorRequest{Name: "n3", Career: nil, Films: nil, Page: 1, PerPage: 1}),
 		},
 	}
 
@@ -408,9 +409,9 @@ func TestFindActor(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	mockCore := mocks.NewMockICore(mockCtrl)
-	mockCore.EXPECT().FindActor(string("n1"), string(""), nil, nil, string("")).Return(nil, fmt.Errorf("core_err")).Times(1)
-	mockCore.EXPECT().FindActor(string("n2"), string(""), nil, nil, string("")).Return(nil, usecase.ErrNotFound).Times(1)
-	mockCore.EXPECT().FindActor(string("n3"), string(""), nil, nil, string("")).Return(actors, nil).Times(1)
+	mockCore.EXPECT().FindActor(string("n1"), string(""), nil, nil, string(""), uint64(0), uint64(0)).Return(nil, fmt.Errorf("core_err")).Times(1)
+	mockCore.EXPECT().FindActor(string("n2"), string(""), nil, nil, string(""), uint64(1), uint64(1)).Return(nil, usecase.ErrNotFound).Times(1)
+	mockCore.EXPECT().FindActor(string("n3"), string(""), nil, nil, string(""), uint64(0), uint64(1)).Return(actors, nil).Times(1)
 	var buff bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buff, nil))
 

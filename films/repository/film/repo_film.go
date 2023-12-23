@@ -34,6 +34,7 @@ type IFilmsRepo interface {
 	HasUsersRating(userId uint64, filmId uint64) (bool, error)
 	AddFilm(film models.FilmItem) error
 	GetFilmId(title string) (uint64, error)
+	DeleteRating(idUser uint64, idFilm uint64) error
 }
 
 type RepoPostgre struct {
@@ -373,4 +374,12 @@ func (repo *RepoPostgre) GetFilmId(title string) (uint64, error) {
 	}
 
 	return id, nil
+}
+
+func (repo *RepoPostgre) DeleteRating(idUser uint64, idFilm uint64) error {
+	_, err := repo.db.Exec("DELETE FROM users_comment WHERE id_user = $1 AND id_film = $2", idUser, idFilm)
+	if err != nil {
+		return fmt.Errorf("delete rating err: %w", err)
+	}
+	return nil
 }

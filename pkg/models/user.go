@@ -10,4 +10,5 @@ type UserItem struct {
 	Password         string `json:"password"`
 	RegistrationDate string `json:"registration_date"`
 	Email            string `json:"email"`
+	Role             string `json:"role"`
 }

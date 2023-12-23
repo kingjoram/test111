@@ -65,6 +65,20 @@ func (mr *MockICoreMockRecorder) AddRating(filmId, userId, rating interface{}) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddRating", reflect.TypeOf((*MockICore)(nil).AddRating), filmId, userId, rating)
 }
 
+// DeleteRating mocks base method.
+func (m *MockICore) DeleteRating(idUser, idFilm uint64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteRating", idUser, idFilm)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteRating indicates an expected call of DeleteRating.
+func (mr *MockICoreMockRecorder) DeleteRating(idUser, idFilm interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRating", reflect.TypeOf((*MockICore)(nil).DeleteRating), idUser, idFilm)
+}
+
 // FavoriteActors mocks base method.
 func (m *MockICore) FavoriteActors(userId, start, end uint64) ([]models.Character, error) {
 	m.ctrl.T.Helper()
@@ -152,18 +166,18 @@ func (mr *MockICoreMockRecorder) FavoriteFilmsRemove(userId, filmId interface{})
 }
 
 // FindActor mocks base method.
-func (m *MockICore) FindActor(name, birthDate string, films, career []string, country string) ([]models.Character, error) {
+func (m *MockICore) FindActor(name, birthDate string, films, career []string, country string, first, limit uint64) ([]models.Character, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindActor", name, birthDate, films, career, country)
+	ret := m.ctrl.Call(m, "FindActor", name, birthDate, films, career, country, first, limit)
 	ret0, _ := ret[0].([]models.Character)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // FindActor indicates an expected call of FindActor.
-func (mr *MockICoreMockRecorder) FindActor(name, birthDate, films, career, country interface{}) *gomock.Call {
+func (mr *MockICoreMockRecorder) FindActor(name, birthDate, films, career, country, first, limit interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindActor", reflect.TypeOf((*MockICore)(nil).FindActor), name, birthDate, films, career, country)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindActor", reflect.TypeOf((*MockICore)(nil).FindActor), name, birthDate, films, career, country, first, limit)
 }
 
 // FindFilm mocks base method.

@@ -52,6 +52,8 @@ func easyjsonD2b7633eDecodeGithubComGoParkMailRu20232VkladyshiPkgModels(in *jlex
 			out.RegistrationDate = string(in.String())
 		case "email":
 			out.Email = string(in.String())
+		case "role":
+			out.Role = string(in.String())
 		default:
 			in.SkipRecursive()
 		}
@@ -105,6 +107,11 @@ func easyjsonD2b7633eEncodeGithubComGoParkMailRu20232VkladyshiPkgModels(out *jwr
 		const prefix string = ",\"email\":"
 		out.RawString(prefix)
 		out.String(string(in.Email))
+	}
+	{
+		const prefix string = ",\"role\":"
+		out.RawString(prefix)
+		out.String(string(in.Role))
 	}
 	out.RawByte('}')
 }
