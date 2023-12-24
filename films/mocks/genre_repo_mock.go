@@ -8,6 +8,7 @@ import (
 	reflect "reflect"
 
 	models "github.com/go-park-mail-ru/2023_2_Vkladyshi/pkg/models"
+	requests "github.com/go-park-mail-ru/2023_2_Vkladyshi/pkg/requests"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -76,4 +77,19 @@ func (m *MockIGenreRepo) GetGenreById(genreId uint64) (string, error) {
 func (mr *MockIGenreRepoMockRecorder) GetGenreById(genreId interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGenreById", reflect.TypeOf((*MockIGenreRepo)(nil).GetGenreById), genreId)
+}
+
+// UsersStatistics mocks base method.
+func (m *MockIGenreRepo) UsersStatistics(idUser uint64) ([]requests.UsersStatisticsResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UsersStatistics", idUser)
+	ret0, _ := ret[0].([]requests.UsersStatisticsResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UsersStatistics indicates an expected call of UsersStatistics.
+func (mr *MockIGenreRepoMockRecorder) UsersStatistics(idUser interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UsersStatistics", reflect.TypeOf((*MockIGenreRepo)(nil).UsersStatistics), idUser)
 }

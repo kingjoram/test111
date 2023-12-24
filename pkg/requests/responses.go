@@ -81,6 +81,12 @@ type (
 	UsersResponse struct {
 		Users []models.UserItem `json:"users"`
 	}
+
+	UsersStatisticsResponse struct {
+		GenreId uint64  `json:"genre_id"`
+		Count   uint64  `json:"count"`
+		Avg     float64 `json:"avg"`
+	}
 )
 
 type Collector struct {

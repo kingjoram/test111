@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/configs"
 	"github.com/go-park-mail-ru/2023_2_Vkladyshi/pkg/models"
+	"github.com/go-park-mail-ru/2023_2_Vkladyshi/pkg/requests"
 
 	_ "github.com/jackc/pgx/stdlib"
 )
@@ -21,6 +22,7 @@ type IGenreRepo interface {
 	GetFilmGenres(filmId uint64) ([]models.GenreItem, error)
 	GetGenreById(genreId uint64) (string, error)
 	AddFilm(genres []uint64, filmId uint64) error
+	UsersStatistics(idUser uint64) ([]requests.UsersStatisticsResponse, error)
 }
 
 type RepoPostgre struct {
@@ -118,4 +120,30 @@ func (repo *RepoPostgre) AddFilm(genres []uint64, filmId uint64) error {
 		return fmt.Errorf("add films genres error: %w", err)
 	}
 	return nil
+}
+
+func (repo *RepoPostgre) UsersStatistics(idUser uint64) ([]requests.UsersStatisticsResponse, error) {
+	response := []requests.UsersStatisticsResponse{}
+
+	rows, err := repo.db.Query("SELECT genre.id, AVG(rating), COUNT(rating) FROM film "+
+		"JOIN users_comment ON film.id = users_comment.id_film "+
+		"JOIN films_genre ON film.id = films_genre.id_film "+
+		"JOIN genre ON genre.id = films_genre.id_genre "+
+		"WHERE id_user = $1 "+
+		"GROUP BY genre.title, id_user", idUser)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("users stats err: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		post := requests.UsersStatisticsResponse{}
+		err := rows.Scan(&post.GenreId, &post.Avg, &post.Count)
+		if err != nil {
+			return nil, fmt.Errorf("users stats scan err: %w", err)
+		}
+		response = append(response, post)
+	}
+
+	return response, nil
 }

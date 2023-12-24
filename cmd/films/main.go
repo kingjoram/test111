@@ -78,8 +78,17 @@ func main() {
 		lg.Error("cant creare calendar repo")
 		return
 	}
-
-	core := usecase.GetCore(config, lg, films, genres, actors, professions, news)
+	redisConfig, err := configs.ReadNearFilmRedisConfig()
+	if err != nil {
+		lg.Error("cant read redis config")
+		return
+	}
+	redisFilms, err := film.GetFilmRedisRepo(*redisConfig, lg)
+	if err != nil {
+		lg.Error("cant create redis repo")
+		return
+	}
+	core := usecase.GetCore(config, lg, films, genres, actors, professions, news, redisFilms)
 	api := delivery.GetApi(core, lg, config)
 
 	api.ListenAndServe()

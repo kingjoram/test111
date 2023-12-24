@@ -11,3 +11,8 @@ type FilmItem struct {
 	Mpaa        string  `json:"mpaa"`
 	Rating      float64 `json:"rating"`
 }
+
+type NearFilm struct {
+	IdFilm uint64
+	IdUser uint64
+}

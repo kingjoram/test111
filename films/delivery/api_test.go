@@ -101,6 +101,7 @@ func TestFilms(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	mockCore := mocks.NewMockICore(mockCtrl)
+
 	mockCore.EXPECT().GetFilmsAndGenreTitle(uint64(0), uint64(0), uint64(8)).Return(nil, "", fmt.Errorf("core_err")).Times(1)
 	mockCore.EXPECT().GetFilmsAndGenreTitle(uint64(1), uint64(0), uint64(8)).Return(expectedFilms, expectedGenre, nil).Times(1)
 	var buff bytes.Buffer
@@ -182,12 +183,13 @@ func TestFilm(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
+	var buff bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&buff, nil))
+
 	mockCore := mocks.NewMockICore(mockCtrl)
 	mockCore.EXPECT().GetFilmInfo(uint64(1)).Return(nil, fmt.Errorf("core_err")).Times(1)
 	mockCore.EXPECT().GetFilmInfo(uint64(2)).Return(nil, usecase.ErrNotFound).Times(1)
 	mockCore.EXPECT().GetFilmInfo(uint64(3)).Return(expectedResponse, nil).Times(1)
-	var buff bytes.Buffer
-	logger := slog.New(slog.NewJSONHandler(&buff, nil))
 
 	api := API{core: mockCore, lg: logger, ct: collector}
 
@@ -198,9 +200,10 @@ func TestFilm(t *testing.T) {
 			q.Add(key, value)
 		}
 		r.URL.RawQuery = q.Encode()
+		newReq := r.WithContext(context.WithValue(r.Context(), middleware.UserIDKey, uint64(1)))
 		w := httptest.NewRecorder()
 
-		api.Film(w, r)
+		api.Film(w, newReq)
 		response, err := getResponse(w)
 		if err != nil {
 			t.Errorf("unexpected error: %s", err)

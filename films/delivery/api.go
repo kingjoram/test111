@@ -38,7 +38,7 @@ func GetApi(c *usecase.Core, l *slog.Logger, cfg *configs.DbDsnCfg) *API {
 
 	api.mx.Handle("/metrics", promhttp.Handler())
 	api.mx.HandleFunc("/api/v1/films", api.Films)
-	api.mx.HandleFunc("/api/v1/film", api.Film)
+	api.mx.Handle("/api/v1/film", middleware.AuthCheck(http.HandlerFunc(api.Film), c, l))
 	api.mx.HandleFunc("/api/v1/actor", api.Actor)
 	api.mx.Handle("/api/v1/favorite/films", middleware.AuthCheck(http.HandlerFunc(api.FavoriteFilms), c, l))
 	api.mx.Handle("/api/v1/favorite/film/add", middleware.AuthCheck(http.HandlerFunc(api.FavoriteFilmsAdd), c, l))
@@ -52,6 +52,9 @@ func GetApi(c *usecase.Core, l *slog.Logger, cfg *configs.DbDsnCfg) *API {
 	api.mx.Handle("/api/v1/rating/add", middleware.AuthCheck(http.HandlerFunc(api.AddRating), c, l))
 	api.mx.HandleFunc("/api/v1/add/film", api.AddFilm)
 	api.mx.Handle("/api/v1/rating/delete", middleware.AuthCheck(http.HandlerFunc(api.DeleteRating), c, l))
+	api.mx.Handle("/api/v1/statistics", middleware.AuthCheck(http.HandlerFunc(api.UsersStatistics), c, l))
+	api.mx.HandleFunc("/api/v1/trends", api.Trends)
+	api.mx.Handle("/api/v1/lasts", middleware.AuthCheck(http.HandlerFunc(api.LastSeen), c, l))
 
 	return api
 }
@@ -141,6 +144,29 @@ func (a *API) Film(w http.ResponseWriter, r *http.Request) {
 	response.Body = film
 
 	a.ct.SendResponse(w, r, response, a.lg, start)
+
+	userId, errAuth := r.Context().Value(middleware.UserIDKey).(uint64)
+
+	if errAuth {
+		a.lg.Error("User StatusUnauthorized", "err", errAuth)
+		return
+	}
+
+	nearFilm := models.NearFilm{
+		IdFilm: filmId,
+		IdUser: userId,
+	}
+
+	addedNearFilm, err := a.core.AddNearFilm(r.Context(), nearFilm, a.lg)
+	if err != nil {
+		a.lg.Error("Failed to add near film", "error", err.Error())
+		return
+	}
+
+	if !addedNearFilm {
+		a.lg.Error("Failed to add near film", "error", err.Error())
+		return
+	}
 }
 
 func (a *API) Actor(w http.ResponseWriter, r *http.Request) {
@@ -690,5 +716,97 @@ func (a *API) DeleteRating(w http.ResponseWriter, r *http.Request) {
 		a.ct.SendResponse(w, r, response, a.lg, start)
 		return
 	}
+	a.ct.SendResponse(w, r, response, a.lg, start)
+}
+
+func (a *API) UsersStatistics(w http.ResponseWriter, r *http.Request) {
+	response := requests.Response{Status: http.StatusOK, Body: nil}
+	start := time.Now()
+
+	if r.Method != http.MethodGet {
+		response.Status = http.StatusMethodNotAllowed
+		a.ct.SendResponse(w, r, response, a.lg, start)
+		return
+	}
+
+	userId := r.Context().Value(middleware.UserIDKey).(uint64)
+
+	stats, err := a.core.UsersStatistics(userId)
+	if err != nil {
+		a.lg.Error("users statistics error", "err", err.Error())
+		response.Status = http.StatusInternalServerError
+		a.ct.SendResponse(w, r, response, a.lg, start)
+		return
+	}
+
+	response.Body = stats
+	a.ct.SendResponse(w, r, response, a.lg, start)
+}
+
+func (a *API) Trends(w http.ResponseWriter, r *http.Request) {
+	response := requests.Response{Status: http.StatusOK, Body: nil}
+	start := time.Now()
+
+	if r.Method != http.MethodGet {
+		response.Status = http.StatusMethodNotAllowed
+		a.ct.SendResponse(w, r, response, a.lg, start)
+		return
+	}
+
+	trends, err := a.core.Trends()
+	if err != nil {
+		a.lg.Error("trends error", "err", err.Error())
+		response.Status = http.StatusInternalServerError
+		a.ct.SendResponse(w, r, response, a.lg, start)
+		return
+	}
+	trendsResponse := requests.FilmsResponse{
+		Films: trends,
+		Total: uint64(len(trends)),
+	}
+
+	response.Body = trendsResponse
+	a.ct.SendResponse(w, r, response, a.lg, start)
+}
+
+func (a *API) LastSeen(w http.ResponseWriter, r *http.Request) {
+	response := requests.Response{Status: http.StatusOK, Body: nil}
+	start := time.Now()
+
+	if r.Method != http.MethodGet {
+		response.Status = http.StatusMethodNotAllowed
+		a.ct.SendResponse(w, r, response, a.lg, start)
+		return
+	}
+
+	userId := r.Context().Value(middleware.UserIDKey).(uint64)
+
+	filmsIds, err := a.core.GetNearFilms(r.Context(), userId, a.lg)
+	if err != nil {
+		a.lg.Error("last seen error", "err", err.Error())
+		response.Status = http.StatusInternalServerError
+		a.ct.SendResponse(w, r, response, a.lg, start)
+		return
+	}
+
+	films, err := a.core.GetLastSeen(filmsIds)
+	if err != nil {
+		if errors.Is(err, usecase.ErrNotFound) {
+			response.Status = http.StatusNotFound
+			a.ct.SendResponse(w, r, response, a.lg, start)
+			return
+		}
+		a.lg.Error("last seen error", "err", err.Error())
+		response.Status = http.StatusInternalServerError
+		a.ct.SendResponse(w, r, response, a.lg, start)
+		return
+	}
+
+	filmsResponse := requests.FilmsResponse{
+		Films: films,
+		Total: uint64(len(films)),
+	}
+
+	response.Body = filmsResponse
 	a.ct.SendResponse(w, r, response, a.lg, start)
 }

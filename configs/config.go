@@ -156,3 +156,18 @@ func ReadCommentConfig() (*CommentCfg, error) {
 
 	return &dsnConfig, nil
 }
+
+func ReadNearFilmRedisConfig() (*DbRedisCfg, error) {
+	nearConfig := DbRedisCfg{}
+	nearFile, err := os.ReadFile("../../configs/db_near_films.yaml")
+	if err != nil {
+		return nil, err
+	}
+
+	err = yaml.Unmarshal(nearFile, &nearConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	return &nearConfig, nil
+}

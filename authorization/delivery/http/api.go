@@ -27,7 +27,7 @@ type IApi interface {
 }
 
 type API struct {
-	core usecase.ICore
+	core  usecase.ICore
 	lg   *slog.Logger
 	ct   *requests.Collector
 	mx   *http.ServeMux

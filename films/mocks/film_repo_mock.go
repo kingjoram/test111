@@ -211,6 +211,21 @@ func (mr *MockIFilmsRepoMockRecorder) GetFilmsByGenre(genre, start, end interfac
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFilmsByGenre", reflect.TypeOf((*MockIFilmsRepo)(nil).GetFilmsByGenre), genre, start, end)
 }
 
+// GetLasts mocks base method.
+func (m *MockIFilmsRepo) GetLasts(ids []uint64) ([]models.FilmItem, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetLasts", ids)
+	ret0, _ := ret[0].([]models.FilmItem)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetLasts indicates an expected call of GetLasts.
+func (mr *MockIFilmsRepoMockRecorder) GetLasts(ids interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLasts", reflect.TypeOf((*MockIFilmsRepo)(nil).GetLasts), ids)
+}
+
 // HasUsersRating mocks base method.
 func (m *MockIFilmsRepo) HasUsersRating(userId, filmId uint64) (bool, error) {
 	m.ctrl.T.Helper()
@@ -238,4 +253,19 @@ func (m *MockIFilmsRepo) RemoveFavoriteFilm(userId, filmId uint64) error {
 func (mr *MockIFilmsRepoMockRecorder) RemoveFavoriteFilm(userId, filmId interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveFavoriteFilm", reflect.TypeOf((*MockIFilmsRepo)(nil).RemoveFavoriteFilm), userId, filmId)
+}
+
+// Trends mocks base method.
+func (m *MockIFilmsRepo) Trends() ([]models.FilmItem, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Trends")
+	ret0, _ := ret[0].([]models.FilmItem)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Trends indicates an expected call of Trends.
+func (mr *MockIFilmsRepoMockRecorder) Trends() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Trends", reflect.TypeOf((*MockIFilmsRepo)(nil).Trends))
 }
