@@ -144,7 +144,8 @@ func (repo *RepoPostgre) CreateUser(login string, password string, name string, 
 
 func (repo *RepoPostgre) GetNamesAndPaths(ids []int32) ([]string, []string, error) {
 	var s strings.Builder
-	s.WriteString("SELECT id, login, photo FROM profile WHERE id = ANY ($1::INTEGER[])")
+	s.WriteString("SELECT login, photo FROM profile WHERE id = ANY ($1::INTEGER[]) " +
+		"ORDER BY array_position($1::INTEGER[], id)")
 
 	rows, err := repo.db.Query(s.String(), pq.Array(ids))
 	if err != nil {
@@ -156,24 +157,17 @@ func (repo *RepoPostgre) GetNamesAndPaths(ids []int32) ([]string, []string, erro
 	var paths []string
 
 	for rows.Next() {
-		var id int32
 		var name string
 		var path string
-		if err := rows.Scan(&id, &name, &path); err != nil {
+		if err := rows.Scan(&name, &path); err != nil {
 			return nil, nil, fmt.Errorf("GetMatchingNamesAndPaths scan error: %w", err)
 		}
-		for _, curr := range ids {
-			if curr == id {
-				names = append(names, name)
-				paths = append(paths, path)
-				break
-			}
-		}
+		names = append(names, name)
+		paths = append(paths, path)
 	}
 
 	return names, paths, nil
 }
-
 
 func (repo *RepoPostgre) GetUserProfile(login string) (*models.UserItem, error) {
 	post := &models.UserItem{}
